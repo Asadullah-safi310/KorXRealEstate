@@ -1,0 +1,823 @@
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, PanResponder, TextInput } from 'react-native';
+import { observer } from 'mobx-react-lite';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useThemeColor } from '../../../hooks/useThemeColor';
+import ScreenLayout from '../../../components/ScreenLayout';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { personService } from '../../../services/person.service';
+import { userService } from '../../../services/user.service';
+import { locationService } from '../../../services/location.service';
+import propertyStore from '../../../stores/PropertyStore';
+import filterStore from '../../../stores/FilterStore';
+import authStore from '../../../stores/AuthStore';
+
+const PriceRangeSlider = ({ min, max, onValueChange, themeColors }: any) => {
+  const [width, setWidth] = useState(0);
+  const [pageX, setPageX] = useState(0);
+  const viewRef = useRef<View>(null);
+  
+  const minVal = parseFloat(min) || 0;
+  const maxVal = parseFloat(max) || 2000000;
+  const RANGE_MAX = 2000000;
+  
+  const histogramData = [5, 8, 12, 18, 25, 40, 35, 45, 60, 55, 40, 30, 25, 18, 12, 8, 5, 3, 2, 1];
+
+  const getPosFromValue = (value: number) => {
+    if (width === 0) return 0;
+    return (value / RANGE_MAX) * width;
+  };
+
+  const getValueFromPos = useCallback((pos: number) => {
+    return Math.round((pos / width) * RANGE_MAX);
+  }, [width]);
+
+  const leftPos = getPosFromValue(minVal);
+  const rightPos = getPosFromValue(maxVal);
+
+  const panResponderLeft = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderMove: (evt, gestureState) => {
+      const newPos = Math.max(0, Math.min(gestureState.moveX - pageX, rightPos - 20));
+      onValueChange(getValueFromPos(newPos), maxVal);
+    },
+  }), [pageX, rightPos, maxVal, onValueChange, getValueFromPos]);
+
+  const panResponderRight = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderMove: (evt, gestureState) => {
+      const newPos = Math.min(width, Math.max(leftPos + 20, gestureState.moveX - pageX));
+      onValueChange(minVal, getValueFromPos(newPos));
+    },
+  }), [width, pageX, leftPos, minVal, onValueChange, getValueFromPos]);
+
+  const onLayout = () => {
+    viewRef.current?.measure((x, y, w, h, px, py) => {
+      setWidth(w);
+      setPageX(px);
+    });
+  };
+
+  const formatCurrency = (val: number) => {
+    return '$' + val.toLocaleString();
+  };
+
+  return (
+    <View 
+      ref={viewRef}
+      style={styles.sliderWrapper} 
+      onLayout={onLayout}
+    >
+      <View style={styles.histogramContainer}>
+        {histogramData.map((h, i) => {
+          const barPos = (i / histogramData.length) * width;
+          const isActive = barPos >= leftPos && barPos <= rightPos;
+          return (
+            <View 
+              key={i} 
+              style={[
+                styles.histogramBar, 
+                { height: h, backgroundColor: isActive ? themeColors.primary + '30' : themeColors.border }
+              ]} 
+            />
+          );
+        })}
+      </View>
+
+      <View style={[styles.sliderTrackBase, { backgroundColor: themeColors.border }]}>
+        <View 
+          style={[
+            styles.sliderTrackHighlight, 
+            { 
+              left: leftPos, 
+              width: rightPos - leftPos, 
+              backgroundColor: themeColors.primary 
+            }
+          ]} 
+        />
+      </View>
+
+      <View 
+        style={[styles.sliderThumbHitArea, { left: leftPos - 20 }]} 
+        {...panResponderLeft.panHandlers}
+      >
+        <View style={[styles.sliderThumb, { borderColor: themeColors.primary, backgroundColor: themeColors.background }]} />
+      </View>
+      <View 
+        style={[styles.sliderThumbHitArea, { left: rightPos - 20 }]} 
+        {...panResponderRight.panHandlers}
+      >
+        <View style={[styles.sliderThumb, { borderColor: themeColors.primary, backgroundColor: themeColors.background }]} />
+      </View>
+
+      <View style={styles.sliderLabels}>
+        <Text style={[styles.priceLabelValue, { color: themeColors.text }]}>{formatCurrency(minVal)}</Text>
+        <Text style={[styles.priceLabelValue, { color: themeColors.text }]}>{formatCurrency(maxVal)}</Text>
+      </View>
+    </View>
+  );
+};
+
+const FiltersScreen = observer(() => {
+  const router = useRouter();
+  const themeColors = useThemeColor();
+  const insets = useSafeAreaInsets();
+  const [agents, setAgents] = useState<any[]>([]);
+  const [provinces, setProvinces] = useState<any[]>([]);
+  const [districts, setDistricts] = useState<any[]>([]);
+  const [areas, setAreas] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [loading, setLoading] = useState(false);
+  
+  const filters = filterStore.filters;
+
+  const fetchAgents = useCallback(async () => {
+    try {
+      const response = authStore.isAuthenticated
+        ? await personService.getAgents()
+        : await userService.getPublicAgents();
+      setAgents(response.data?.users || response.data || []);
+    } catch (error: any) {
+      if (error?.response?.status === 401) {
+        try {
+          const response = await userService.getPublicAgents();
+          setAgents(response.data?.users || response.data || []);
+          return;
+        } catch (fallbackError) {
+          console.error('Failed to fetch public agents after 401', fallbackError);
+        }
+      }
+      console.error('Failed to fetch agents', error);
+    }
+  }, [authStore.isAuthenticated]);
+
+  const fetchProvinces = useCallback(async () => {
+    try {
+      const response = await locationService.getProvinces();
+      setProvinces(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch provinces', error);
+    }
+  }, []);
+
+  const fetchDistricts = useCallback(async (provinceId: string) => {
+    if (!provinceId) {
+      setDistricts([]);
+      return;
+    }
+    try {
+      setLoading(true);
+      const response = await locationService.getDistricts(provinceId);
+      setDistricts(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch districts', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchAreas = useCallback(async (districtId: string) => {
+    if (!districtId) {
+      setAreas([]);
+      return;
+    }
+    try {
+      setLoading(true);
+      const response = await locationService.getAreas(districtId);
+      setAreas(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch areas', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAgents();
+    fetchProvinces();
+  }, [fetchAgents, fetchProvinces]);
+
+  useEffect(() => {
+    if (filters.province_id) {
+      fetchDistricts(filters.province_id);
+    } else {
+      setDistricts([]);
+      filterStore.updateFilters({ district_id: '', area_id: '' });
+    }
+  }, [filters.province_id, fetchDistricts]);
+
+  useEffect(() => {
+    if (filters.district_id) {
+      fetchAreas(filters.district_id);
+    } else {
+      setAreas([]);
+      filterStore.updateFilter('area_id', '');
+    }
+  }, [filters.district_id, fetchAreas]);
+
+  const updateFilter = (name: string, value: string) => {
+    filterStore.updateFilter(name as any, value);
+  };
+
+  const clearFilters = () => {
+    filterStore.clearFilters();
+  };
+
+  const applyFilters = async () => {
+    setSearching(true);
+    try {
+      const queryParams: any = {};
+      
+      if (filters.search) queryParams.search = filters.search;
+      if (filters.province_id) queryParams.province_id = filters.province_id;
+      if (filters.district_id) queryParams.district_id = filters.district_id;
+      if (filters.area_id) queryParams.area_id = filters.area_id;
+      if (filters.property_type) queryParams.property_type = filters.property_type;
+      if (filters.bedrooms) queryParams.bedrooms = filters.bedrooms;
+      if (filters.agent_id) queryParams.agent_id = filters.agent_id;
+      
+      if (filters.property_category) {
+        queryParams.property_category = filters.property_category;
+        queryParams.record_kind = 'container';
+      } else if (filters.record_kind) {
+        queryParams.record_kind = filters.record_kind;
+      } else {
+        queryParams.record_kind = 'listing';
+      }
+      
+      if (filters.purpose === 'sale') {
+        queryParams.is_available_for_sale = true;
+      } else if (filters.purpose === 'rent') {
+        queryParams.is_available_for_rent = true;
+      }
+      
+      if (filters.min_price) {
+        if (filters.purpose === 'rent') {
+          queryParams.min_rent_price = filters.min_price;
+        } else {
+          queryParams.min_sale_price = filters.min_price;
+        }
+      }
+      if (filters.max_price && filters.max_price !== '2000000') {
+        if (filters.purpose === 'rent') {
+          queryParams.max_rent_price = filters.max_price;
+        } else {
+          queryParams.max_sale_price = filters.max_price;
+        }
+      }
+
+      queryParams.status = 'active';
+
+      await propertyStore.searchProperties(queryParams, false);
+      
+      router.push('/(tabs)/properties');
+    } catch (error) {
+      console.error('Search failed', error);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const hasActiveFilters = () => {
+    return filterStore.hasActiveFilters;
+  };
+
+  const getProvinceName = (id: string) => {
+    const province = provinces.find((p: any) => String(p.id || p._id) === String(id));
+    return province?.name || '';
+  };
+
+  const getDistrictName = (id: string) => {
+    const district = districts.find((d: any) => String(d.id || d._id) === String(id));
+    return district?.name || '';
+  };
+
+  return (
+    <ScreenLayout backgroundColor={themeColors.background} bottomSpacing={0} edges={['top', 'left', 'right']}>
+             <View style={[styles.header, { 
+          backgroundColor: themeColors.background,
+          borderBottomColor: themeColors.border + '20'
+        }]}>
+          <View style={styles.headerContent}>
+            <Text style={[styles.headerTitle, { color: themeColors.text }]}>Filters</Text>
+            <TouchableOpacity 
+              onPress={clearFilters}
+              style={[styles.resetButton, { 
+                backgroundColor: hasActiveFilters() ? themeColors.primary : themeColors.border + '40'
+              }]}
+              disabled={!hasActiveFilters()}
+            >
+              <Ionicons name="refresh" size={16} color={hasActiveFilters() ? '#fff' : themeColors.subtext} />
+              <Text style={[styles.resetButtonText, { 
+                color: hasActiveFilters() ? '#fff' : themeColors.subtext 
+              }]}>Reset</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: 180 }}
+      >
+ 
+
+        <View style={[styles.filterCard, { backgroundColor: themeColors.card }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Search</Text>
+          <View style={[styles.searchInput, { backgroundColor: themeColors.background, borderColor: themeColors.border }]}>
+            <Ionicons name="search-outline" size={20} color={themeColors.subtext} />
+            <TextInput
+              style={[styles.input, { color: themeColors.text }]}
+              placeholder="Search properties by name, description, location..."
+              placeholderTextColor={themeColors.subtext}
+              value={filters.search}
+              onChangeText={(value) => updateFilter('search', value)}
+            />
+            {filters.search && (
+              <TouchableOpacity onPress={() => updateFilter('search', '')}>
+                <Ionicons name="close-circle" size={18} color={themeColors.subtext} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        <View style={[styles.filterCard, { backgroundColor: themeColors.card }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Location</Text>
+          
+          <Text style={[styles.subLabel, { color: themeColors.subtext }]}>Province</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+            <View style={styles.chipGrid}>
+              {provinces.map((province: any) => {
+                const provinceId = String(province.id || province._id);
+                const isActive = filters.province_id === provinceId;
+                return (
+                  <TouchableOpacity
+                    key={provinceId}
+                    style={[
+                      styles.filterChip,
+                      { 
+                        backgroundColor: isActive ? themeColors.primary : themeColors.background,
+                        borderColor: isActive ? themeColors.primary : themeColors.border
+                      }
+                    ]}
+                    onPress={() => updateFilter('province_id', isActive ? '' : provinceId)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[
+                      styles.filterChipText,
+                      { color: isActive ? '#fff' : themeColors.text }
+                    ]}>{province.name}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </ScrollView>
+
+          {filters.province_id && districts.length > 0 && (
+            <>
+              <Text style={[styles.subLabel, { color: themeColors.subtext, marginTop: 12 }]}>
+                District in {getProvinceName(filters.province_id)}
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+                <View style={styles.chipGrid}>
+                  {districts.map((district: any) => {
+                    const districtId = String(district.id || district._id);
+                    const isActive = filters.district_id === districtId;
+                    return (
+                      <TouchableOpacity
+                        key={districtId}
+                        style={[
+                          styles.filterChip,
+                          { 
+                            backgroundColor: isActive ? themeColors.primary : themeColors.background,
+                            borderColor: isActive ? themeColors.primary : themeColors.border
+                          }
+                        ]}
+                        onPress={() => updateFilter('district_id', isActive ? '' : districtId)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[
+                          styles.filterChipText,
+                          { color: isActive ? '#fff' : themeColors.text }
+                        ]}>{district.name}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+            </>
+          )}
+
+          {filters.district_id && areas.length > 0 && (
+            <>
+              <Text style={[styles.subLabel, { color: themeColors.subtext, marginTop: 12 }]}>
+                Area in {getDistrictName(filters.district_id)}
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+                <View style={styles.chipGrid}>
+                  {areas.map((area: any) => {
+                    const areaId = String(area.id || area._id);
+                    const isActive = filters.area_id === areaId;
+                    return (
+                      <TouchableOpacity
+                        key={areaId}
+                        style={[
+                          styles.filterChip,
+                          { 
+                            backgroundColor: isActive ? themeColors.primary : themeColors.background,
+                            borderColor: isActive ? themeColors.primary : themeColors.border
+                          }
+                        ]}
+                        onPress={() => updateFilter('area_id', isActive ? '' : areaId)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[
+                          styles.filterChipText,
+                          { color: isActive ? '#fff' : themeColors.text }
+                        ]}>{area.name}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+            </>
+          )}
+        </View>
+
+        <View style={[styles.filterCard, { backgroundColor: themeColors.card }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Property Type</Text>
+          <View style={styles.chipGrid}>
+            {[
+              { label: 'House', value: 'house' },
+              { label: 'Apartment', value: 'apartment' },
+              { label: 'Land', value: 'land' },
+              { label: 'Shop', value: 'shop' },
+            ].map((item) => {
+              const isActive = filters.property_type === item.value;
+              return (
+                <TouchableOpacity
+                  key={item.value}
+                  style={[
+                    styles.filterChip, 
+                    { 
+                      backgroundColor: isActive ? themeColors.primary : themeColors.background,
+                      borderColor: isActive ? themeColors.primary : themeColors.border
+                    }
+                  ]}
+                  onPress={() => updateFilter('property_type', isActive ? '' : item.value)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[
+                    styles.filterChipText, 
+                    { color: isActive ? '#fff' : themeColors.text }
+                  ]}>{item.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={[styles.filterCard, { backgroundColor: themeColors.card }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Category</Text>
+          <View style={styles.chipGrid}>
+            {[
+              { label: 'Tower/Apartment', value: 'tower' },
+              { label: 'Market', value: 'market' },
+              { label: 'Sharak', value: 'sharak' },
+            ].map((item) => {
+              const isActive = filters.property_category === item.value;
+              return (
+                <TouchableOpacity
+                  key={item.value}
+                  style={[
+                    styles.filterChip, 
+                    { 
+                      backgroundColor: isActive ? themeColors.primary : themeColors.background,
+                      borderColor: isActive ? themeColors.primary : themeColors.border
+                    }
+                  ]}
+                  onPress={() => updateFilter('property_category', isActive ? '' : item.value)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[
+                    styles.filterChipText, 
+                    { color: isActive ? '#fff' : themeColors.text }
+                  ]}>{item.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={[styles.filterCard, { backgroundColor: themeColors.card }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Purpose</Text>
+          <View style={styles.chipGrid}>
+            {[
+              { label: 'For Sale', value: 'sale' },
+              { label: 'For Rent', value: 'rent' },
+            ].map((item) => {
+              const isActive = filters.purpose === item.value;
+              return (
+                <TouchableOpacity
+                  key={item.value}
+                  style={[
+                    styles.filterChip, 
+                    { 
+                      backgroundColor: isActive ? themeColors.primary : themeColors.background,
+                      borderColor: isActive ? themeColors.primary : themeColors.border
+                    }
+                  ]}
+                  onPress={() => updateFilter('purpose', isActive ? '' : item.value)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[
+                    styles.filterChipText, 
+                    { color: isActive ? '#fff' : themeColors.text }
+                  ]}>{item.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={[styles.filterCard, { backgroundColor: themeColors.card }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
+            Price Range {filters.purpose === 'rent' ? '(Rent)' : filters.purpose === 'sale' ? '(Sale)' : ''}
+          </Text>
+          <PriceRangeSlider 
+            min={filters.min_price} 
+            max={filters.max_price || 2000000} 
+            themeColors={themeColors}
+            onValueChange={(minVal: number, maxVal: number) => {
+              filterStore.updateFilters({ min_price: String(minVal), max_price: String(maxVal) });
+            }}
+          />
+        </View>
+
+        <View style={[styles.filterCard, { backgroundColor: themeColors.card }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Bedrooms</Text>
+          <View style={styles.chipGrid}>
+            {['1', '2', '3', '4', '5+'].map((num) => {
+              const isActive = filters.bedrooms === num.replace('+', '');
+              return (
+                <TouchableOpacity
+                  key={num}
+                  style={[
+                    styles.filterChip, 
+                    { 
+                      backgroundColor: isActive ? themeColors.primary : themeColors.background,
+                      borderColor: isActive ? themeColors.primary : themeColors.border
+                    }
+                  ]}
+                  onPress={() => updateFilter('bedrooms', isActive ? '' : num.replace('+', ''))}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[
+                    styles.filterChipText, 
+                    { color: isActive ? '#fff' : themeColors.text }
+                  ]}>{num}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {agents.filter((agent: any) => agent.role !== 'admin').length > 0 && (
+          <View style={[styles.filterCard, { backgroundColor: themeColors.card }]}>
+            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Agent</Text>
+            <View style={styles.chipGrid}>
+              {agents.filter((agent: any) => agent.role !== 'admin').map((agent: any) => {
+                const isActive = filters.agent_id === String(agent.user_id);
+                return (
+                  <TouchableOpacity
+                    key={agent.user_id}
+                    style={[
+                      styles.filterChip, 
+                      { 
+                        backgroundColor: isActive ? themeColors.primary : themeColors.background,
+                        borderColor: isActive ? themeColors.primary : themeColors.border
+                      }
+                    ]}
+                    onPress={() => updateFilter('agent_id', isActive ? '' : String(agent.user_id))}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[
+                      styles.filterChipText, 
+                      { color: isActive ? '#fff' : themeColors.text }
+                    ]}>{agent.full_name}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+      </ScrollView>
+
+      <View style={[styles.footer, { backgroundColor: themeColors.card, borderTopColor: themeColors.border }]}>
+        <TouchableOpacity 
+          style={[styles.applyBtn, { 
+            backgroundColor: themeColors.primary, 
+            opacity: searching ? 0.7 : 1 
+          }]} 
+          onPress={applyFilters}
+          disabled={searching}
+          activeOpacity={0.85}
+        >
+          {searching ? (
+            <>
+              <ActivityIndicator size="small" color="#fff" />
+              <Text style={styles.applyBtnText}>Searching...</Text>
+            </>
+          ) : (
+            <>
+              <Ionicons name="search" size={20} color="#fff" />
+              <Text style={styles.applyBtnText}>
+                Search Properties
+                {hasActiveFilters() && ` (${Object.values(filters).filter(v => v !== '').length})`}
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+    </ScreenLayout>
+  );
+});
+
+const styles = StyleSheet.create({
+  header: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    paddingTop: 20,
+    marginBottom: 0,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  resetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  resetButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  content: {
+    flex: 1,
+  },
+  filterCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 14,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 12,
+    letterSpacing: -0.3,
+  },
+  subLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 8,
+    marginTop: 6,
+  },
+  searchInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 8,
+  },
+  input: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '300',
+  },
+  chipGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  horizontalScroll: {
+    marginHorizontal: -14,
+    paddingHorizontal: 14,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  sliderWrapper: {
+    height: 88,
+    justifyContent: 'center',
+  },
+  histogramContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    height: 50,
+    marginBottom: 8,
+  },
+  histogramBar: {
+    flex: 1,
+    marginHorizontal: 1,
+    borderRadius: 2,
+  },
+  sliderTrackBase: {
+    height: 4,
+    borderRadius: 2,
+    position: 'relative',
+  },
+  sliderTrackHighlight: {
+    height: '100%',
+    borderRadius: 2,
+    position: 'absolute',
+  },
+  sliderThumbHitArea: {
+    position: 'absolute',
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    top: 30,
+    zIndex: 10,
+  },
+  sliderThumb: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2.5,
+  },
+  sliderLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 14,
+  },
+  priceLabelValue: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  centered: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 15,
+    borderTopWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  applyBtn: {
+    height: 54,
+    borderRadius: 16,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  applyBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+});
+
+export default FiltersScreen;
