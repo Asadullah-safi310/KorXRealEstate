@@ -151,7 +151,7 @@ const StepLocationAndAmenities = () => {
         <View style={{ gap: 16 }}>
           {/* Province Picker */}
           <View>
-            <AppText variant="tiny" weight="bold" style={[{ color: theme.subtext }, styles.label]}>PROVINCE / CITY</AppText>
+            <AppText variant="tiny" weight="bold" style={[{ color: theme.subtext }, styles.label]}>PROVINCE *</AppText>
             <View style={[styles.pickerWrapper, { backgroundColor: 'transparent', borderColor: theme.border }]}>
               {loadingProvinces ? <ActivityIndicator size="small" color={theme.primary} /> : (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
@@ -180,7 +180,7 @@ const StepLocationAndAmenities = () => {
           {/* District Picker */}
           {(values.province_id || values.provinceId) && (
             <View>
-              <AppText variant="tiny" weight="bold" style={[{ color: theme.subtext }, styles.label]}>DISTRICT</AppText>
+              <AppText variant="tiny" weight="bold" style={[{ color: theme.subtext }, styles.label]}>CITY *</AppText>
               <View style={[styles.pickerWrapper, { backgroundColor: 'transparent', borderColor: theme.border }]}>
                 {loadingDistricts ? <ActivityIndicator size="small" color={theme.primary} /> : (
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
@@ -209,7 +209,7 @@ const StepLocationAndAmenities = () => {
           {/* Area / Region Picker */}
           {(values.district_id || values.districtId) && areas.length > 0 && (
             <View>
-              <AppText variant="tiny" weight="bold" style={[{ color: theme.subtext }, styles.label]}>SPECIFIC AREA</AppText>
+              <AppText variant="tiny" weight="bold" style={[{ color: theme.subtext }, styles.label]}>AREA *</AppText>
               <View style={[styles.pickerWrapper, { backgroundColor: 'transparent', borderColor: theme.border }]}>
                 {loadingAreas ? <ActivityIndicator size="small" color={theme.primary} /> : (
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
@@ -228,12 +228,13 @@ const StepLocationAndAmenities = () => {
                   </ScrollView>
                 )}
               </View>
+              {touched.area_id && errors.area_id && <AppText variant="tiny" style={{ color: theme.danger, marginLeft: 12 }}>{errors.area_id as string}</AppText>}
             </View>
           )}
 
           {/* Full Address Input */}
           <View>
-            <AppText variant="tiny" weight="bold" style={[{ color: theme.subtext }, styles.label]}>STREET ADDRESS</AppText>
+            <AppText variant="tiny" weight="bold" style={[{ color: theme.subtext }, styles.label]}>STREET ADDRESS (OPTIONAL)</AppText>
             <View style={[styles.addressInput, { backgroundColor: 'transparent', borderColor: theme.border }]}>
               <Ionicons name="location-outline" size={20} color={theme.subtext} style={{ marginTop: 2 }} />
               <TextInput
@@ -248,9 +249,6 @@ const StepLocationAndAmenities = () => {
                 }}
               />
             </View>
-            {(touched.address || touched.location) && (errors.address || errors.location) && (
-              <AppText variant="tiny" style={{ color: theme.danger, marginLeft: 12 }}>Address is required</AppText>
-            )}
           </View>
         </View>
       </View>

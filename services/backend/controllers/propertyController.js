@@ -908,6 +908,20 @@ const addChildProperty = async (req, res) => {
   return parentController.createChild(req, res);
 };
 
+const getNearbyPlaces = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const nearbyService = require('../services/nearbyPlacesService');
+    
+    const result = await nearbyService.getNearbyCacheForProperty(parseInt(id, 10));
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching nearby places:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   createProperty,
   getProperties,
@@ -927,5 +941,6 @@ module.exports = {
   deleteFile,
   getPropertiesByTenant,
   addChildProperty,
-  uploadFiles
+  uploadFiles,
+  getNearbyPlaces
 };

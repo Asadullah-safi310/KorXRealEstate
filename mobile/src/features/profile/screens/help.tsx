@@ -63,13 +63,13 @@ export default function HelpScreen() {
           <SupportCard 
             icon="call-outline" 
             title="Customer Support" 
-            subtitle="+93 700 000 000" 
+            subtitle="+93 771445363" 
             onPress={handleCall}
           />
           <SupportCard 
             icon="mail-outline" 
             title="Email Inquiry" 
-            subtitle="support@etimad.af" 
+            subtitle="starone310@gmail.com" 
             onPress={handleEmail}
             color="#10b981"
           />

@@ -87,6 +87,11 @@ const StepLocation = () => {
   const searchLocation = async () => {
     if (!searchQuery.trim()) return;
     
+    alert('Location Search Unavailable\n\nThe location search feature is currently unavailable. We will provide this feature soon.\n\nFor now, please:\n• Tap the map to place a marker\n• Use "Current Location" button\n• Enter coordinates manually');
+    setSearching(false);
+    return;
+    
+    /* Disabled until Google API key is configured
     try {
       setSearching(true);
       setShowResults(true);
@@ -133,6 +138,7 @@ const StepLocation = () => {
     } finally {
       setSearching(false);
     }
+    */
   };
 
   const selectSearchResult = (result: any) => {
@@ -185,17 +191,24 @@ const StepLocation = () => {
       {/* Search Input */}
       {isMapAvailable && (
         <View style={{ marginBottom: 16 }}>
-          <View style={{ flexDirection: 'row', gap: 12 }}>
+          <View style={[styles.unavailableNotice, { backgroundColor: theme.primary + '10', borderColor: theme.primary + '30' }]}>
+            <Ionicons name="information-circle" size={18} color={theme.primary} />
+            <AppText variant="caption" weight="medium" color={theme.text} style={{ flex: 1, marginLeft: 8 }}>
+              Location search is temporarily unavailable. Use map tap or current location instead.
+            </AppText>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 12, opacity: 0.5 }}>
             <View style={[styles.searchContainer, { backgroundColor: theme.card, borderColor: theme.border, flex: 1 }]}>
               <Ionicons name="search" size={20} color={theme.subtext} />
               <TextInput
                 style={[styles.searchInput, { color: theme.text }]}
-                placeholder="Search location (e.g., Laghman Tower, Kabul)"
+                placeholder="Search location (temporarily unavailable)"
                 placeholderTextColor={theme.text + '40'}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 onSubmitEditing={searchLocation}
                 returnKeyType="search"
+                editable={false}
               />
               {searchQuery.length > 0 && (
                 <TouchableOpacity onPress={() => { setSearchQuery(''); setShowResults(false); setSearchResults([]); }}>
@@ -204,9 +217,9 @@ const StepLocation = () => {
               )}
             </View>
             <TouchableOpacity
-              style={[styles.searchButton, { backgroundColor: theme.primary }]}
+              style={[styles.searchButton, { backgroundColor: theme.subtext }]}
               onPress={searchLocation}
-              disabled={searching || !searchQuery.trim()}
+              disabled={true}
             >
               {searching ? (
                 <ActivityIndicator size="small" color="#fff" />
@@ -475,6 +488,14 @@ const styles = StyleSheet.create({
   errorText: { 
     marginTop: 4, 
     marginLeft: 4,
+  },
+  unavailableNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
   },
 });
 

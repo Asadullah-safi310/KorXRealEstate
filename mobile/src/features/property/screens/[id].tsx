@@ -12,6 +12,7 @@ import authStore from '../../../stores/AuthStore';
 import favoriteStore from '../../../stores/FavoriteStore';
 import Avatar from '../../../components/Avatar';
 import PropertyCard from '../../../components/PropertyCard';
+import NearbyPlaces from '../../../components/property/NearbyPlaces';
 import { getImageUrl } from '../../../utils/mediaUtils';
 import { shareProperty } from '../../../utils/shareUtils';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -536,11 +537,13 @@ const PropertyDetailsScreen = observer(() => {
                   </AppText>
                 </View>
               ) : null}
-              <View style={[styles.statusBadge, { backgroundColor: (property.is_available_for_rent || property.is_available_for_sale) ? '#dcfce7' : '#fee2e2' }]}>
-                <AppText variant="tiny" weight="bold" color={(property.is_available_for_rent || property.is_available_for_sale) ? '#166534' : '#991b1b'}>
-                  {(property.is_available_for_rent || property.is_available_for_sale) ? 'Active' : 'De active'}
-                </AppText>
-              </View>
+              {!isContainer && (
+                <View style={[styles.statusBadge, { backgroundColor: (property.is_available_for_rent || property.is_available_for_sale) ? '#dcfce7' : '#fee2e2' }]}>
+                  <AppText variant="tiny" weight="bold" color={(property.is_available_for_rent || property.is_available_for_sale) ? '#166534' : '#991b1b'}>
+                    {(property.is_available_for_rent || property.is_available_for_sale) ? 'Active' : 'De active'}
+                  </AppText>
+                </View>
+              )}
             </View>
 
             {isContainer && (
@@ -574,19 +577,6 @@ const PropertyDetailsScreen = observer(() => {
               >
                 <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={22} color={isFavorite ? "#ef4444" : theme.subtext} />
               </TouchableOpacity>
-            </View>
-
-            <View style={styles.locationRatingRow}>
-              <View style={styles.locationRow}>
-                <Ionicons name="location" size={14} color="#f87171" />
-                <AppText variant="small" weight="medium" color={theme.subtext} style={{ marginLeft: 4 }}>
-                  {[property.address, property.AreaData?.name].filter(Boolean).join(', ')}
-                </AppText>
-              </View>
-              <View style={styles.ratingRow}>
-                <Ionicons name="star" size={16} color="#ef4444" />
-                <AppText variant="body" weight="bold" color={theme.text} style={{ marginLeft: 4 }}>3.7</AppText>
-              </View>
             </View>
 
             {/* Parent Building or Container Link */}
@@ -688,14 +678,6 @@ const PropertyDetailsScreen = observer(() => {
             )}
           </View>
 
-          {/* Description Section */}
-          <View style={styles.section}>
-            <AppText variant="title" weight="bold" color={theme.text} style={styles.sectionTitle}>Property description</AppText>
-            <AppText variant="body" color={theme.text} style={styles.descriptionText}>
-              {property.description || 'Step into comfort and style with this spacious property featuring an open-concept living area and high-quality finishes.'}
-            </AppText>
-          </View>
-
           {/* Child Units Section */}
           {property.record_kind === 'container' && (
             <View style={styles.section}>
@@ -741,6 +723,14 @@ const PropertyDetailsScreen = observer(() => {
               )}
             </View>
           )}
+
+          {/* Description Section */}
+          <View style={styles.section}>
+            <AppText variant="title" weight="bold" color={theme.text} style={styles.sectionTitle}>Property description</AppText>
+            <AppText variant="body" color={theme.text} style={styles.descriptionText}>
+              {property.description || 'Step into comfort and style with this spacious property featuring an open-concept living area and high-quality finishes.'}
+            </AppText>
+          </View>
 
           {/* Amenities Grid */}
           {(() => {
@@ -801,7 +791,12 @@ const PropertyDetailsScreen = observer(() => {
               </TouchableOpacity>
             </View>
             <AppText variant="small" weight="medium" color={theme.subtext} style={{ marginBottom: 16 }}>
-              {[property.address, property.AreaData?.name, property.DistrictData?.name, property.city].filter(Boolean).join(', ')}
+              {[
+                property.address,
+                property.AreaData?.name,
+                property.DistrictData?.name || property.district,
+                property.ProvinceData?.name || property.city,
+              ].filter(Boolean).join(', ')}
             </AppText>
             
             <TouchableOpacity 
@@ -860,6 +855,9 @@ const PropertyDetailsScreen = observer(() => {
               )}
             </TouchableOpacity>
           </View>
+
+          {/* Nearby Places Section */}
+          <NearbyPlaces propertyId={propertyIdNum} />
 
           {/* Owner Name and Property Code (Only visible to creator/agent) */}
           {canEdit && (property.owner_name || property.property_code) && (
@@ -1165,15 +1163,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
-  },
-  locationRatingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   propertyTitle: {
     fontSize: 18,

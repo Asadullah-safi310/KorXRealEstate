@@ -8,6 +8,7 @@ const District = require('./District');
 const Area = require('./Area');
 const OTP = require('./OTP');
 const UserPermission = require('./UserPermission');
+const NearbyCache = require('./NearbyCache');
 
 // --- User & Person Associations ---
 User.hasOne(Person, { foreignKey: 'user_id', as: 'PersonProfile' });
@@ -75,4 +76,5 @@ module.exports = {
   Area,
   OTP,
   UserPermission,
+  NearbyCache,
 };

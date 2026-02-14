@@ -11,7 +11,8 @@ const {
   getPropertiesByOwner,
   getPublicProperties,
   getPublicPropertiesByUser,
-  getPropertyChildren
+  getPropertyChildren,
+  getNearbyPlaces
 } = controllers;
 
 router.get('/public', getPublicProperties);
@@ -20,6 +21,7 @@ router.get('/search', searchProperties);
 router.get('/available', getAvailableProperties);
 router.get('/owner/:id', getPropertiesByOwner);
 router.get('/:id/children', getPropertyChildren);
+router.get('/:id/nearby', getNearbyPlaces);
 router.get('/:id', getPropertyById);
 router.get('/', getProperties);
 

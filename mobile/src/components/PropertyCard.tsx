@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Pressable, FlatList, Dimensions, NativeScrollEvent, NativeSyntheticEvent, Text } from 'react-native';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { observer } from 'mobx-react-lite';
@@ -30,9 +31,10 @@ interface PropertyCardProps {
   onPress: () => void;
   index?: number;
   variant?: 'default' | 'compact' | 'horizontal';
+  compactDensity?: 'normal' | 'small';
 }
 
-const PropertyCard = observer(({ property, onPress, index = 0, variant = 'default' }: PropertyCardProps) => {
+const PropertyCard = observer(({ property, onPress, index = 0, variant = 'default', compactDensity = 'normal' }: PropertyCardProps) => {
   const themeColors = useThemeColor();
   const currentTheme = useCurrentTheme();
   const router = useRouter();
@@ -137,6 +139,7 @@ const PropertyCard = observer(({ property, onPress, index = 0, variant = 'defaul
     borderWidth: 1,
   };
   const dividerColor = currentTheme === 'dark' ? '#334155' : '#cbd5e1';
+  const compactActionBg = currentTheme === 'dark' ? 'rgba(15,23,42,0.85)' : 'rgba(255,255,255,0.9)';
   const displayPrice = isContainer 
     ? (property.property_category ? property.property_category.charAt(0).toUpperCase() + property.property_category.slice(1) : 'Building')
     : getPropertyDisplayPrice(property);
@@ -369,9 +372,14 @@ const PropertyCard = observer(({ property, onPress, index = 0, variant = 'defaul
   }
 
   if (variant === 'compact') {
+    const isSmallCompact = compactDensity === 'small';
     const displayPrice = getPropertyDisplayPrice(property);
     const typeLabel = property.property_type || 'Property';
     const bedLabel = property.bedrooms ?? '-';
+    const compactTagBg = isSmallCompact
+      ? (currentTheme === 'dark' ? '#e2e8f0' : '#f1f5f9')
+      : undefined;
+    const compactTagTextColor = isSmallCompact ? '#334155' : themeColors.white;
 
     return (
       <Pressable
@@ -386,9 +394,9 @@ const PropertyCard = observer(({ property, onPress, index = 0, variant = 'defaul
           <View 
             style={[styles.compactCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
           >
-            <View style={styles.compactMedia}>
+            <View style={[styles.compactMedia, isSmallCompact && styles.compactMediaSmall]}>
               {photos.length > 0 ? (
-                <Pressable onPress={onPress} style={styles.compactImageContainer}>
+                <Pressable onPress={onPress} style={[styles.compactImageContainer, isSmallCompact && styles.compactImageContainerSmall]}>
                   <Image
                     source={{ uri: getImageUrl(photos[0]) || '' }}
                     style={styles.compactImage}
@@ -403,105 +411,218 @@ const PropertyCard = observer(({ property, onPress, index = 0, variant = 'defaul
                 </View>
               )}
               
-              <View style={styles.compactImageOverlay} />
+              {isSmallCompact ? (
+                <LinearGradient
+                  colors={['rgba(0,0,0,0.04)', 'rgba(0,0,0,0.18)', 'rgba(0,0,0,0.72)']}
+                  start={{ x: 0.5, y: 0 }}
+                  end={{ x: 0.5, y: 1 }}
+                  style={styles.compactImageOverlay}
+                />
+              ) : (
+                <View style={styles.compactImageOverlay} />
+              )}
               
               {isPubliclyAvailable && (
-                <View style={[styles.availabilityDotAbsolute, { backgroundColor: themeColors.success, top: 12, left: 12, right: 'auto' }]} />
+                <View
+                  style={[
+                    styles.availabilityDotAbsolute,
+                    {
+                      backgroundColor: themeColors.success,
+                      top: isSmallCompact ? 10 : 12,
+                      left: isSmallCompact ? 10 : 12,
+                      right: 'auto',
+                      width: isSmallCompact ? 12 : 16,
+                      height: isSmallCompact ? 12 : 16,
+                      borderRadius: isSmallCompact ? 6 : 8,
+                      borderWidth: isSmallCompact ? 2 : 2.5,
+                    },
+                  ]}
+                />
               )}
 
-              <View style={[styles.compactBadgeRow, { left: 34 }]}>
+              <View style={[styles.compactBadgeRow, { top: isSmallCompact ? 10 : 12, left: isSmallCompact ? 24 : 34 }]}>
                 {isSale && (
-                  <View style={[styles.compactTag, { backgroundColor: themeColors.primary }]}> 
-                    <AppText variant="tiny" weight="bold" color={themeColors.white}>Sale</AppText>
+                  <View
+                    style={[
+                      styles.compactTag,
+                      {
+                        backgroundColor: compactTagBg || themeColors.primary,
+                        paddingHorizontal: isSmallCompact ? 6 : 8,
+                        paddingVertical: isSmallCompact ? 2 : 4,
+                        borderRadius: isSmallCompact ? 5 : 6,
+                      },
+                    ]}
+                  >
+                    <AppText variant="tiny" weight="bold" color={compactTagTextColor} style={{ fontSize: isSmallCompact ? 9 : 11 }}>
+                      Sale
+                    </AppText>
                   </View>
                 )}
                 {isRent && (
-                  <View style={[styles.compactTag, { backgroundColor: themeColors.success }]}> 
-                    <AppText variant="tiny" weight="bold" color={themeColors.white}>Rent</AppText>
+                  <View
+                    style={[
+                      styles.compactTag,
+                      {
+                        backgroundColor: compactTagBg || themeColors.success,
+                        paddingHorizontal: isSmallCompact ? 6 : 8,
+                        paddingVertical: isSmallCompact ? 2 : 4,
+                        borderRadius: isSmallCompact ? 5 : 6,
+                      },
+                    ]}
+                  >
+                    <AppText variant="tiny" weight="bold" color={compactTagTextColor} style={{ fontSize: isSmallCompact ? 9 : 11 }}>
+                      Rent
+                    </AppText>
                   </View>
                 )}
               </View>
               
               <TouchableOpacity 
-                style={[styles.compactFavorite, { top: 12, right: 52, backgroundColor: 'rgba(255,255,255,0.9)' }]} 
+                style={[
+                  styles.compactFavorite,
+                  {
+                    top: isSmallCompact ? 10 : 12,
+                    right: isSmallCompact ? 44 : 52,
+                    backgroundColor: compactActionBg,
+                    width: isSmallCompact ? 30 : 36,
+                    height: isSmallCompact ? 30 : 36,
+                    borderRadius: isSmallCompact ? 15 : 18,
+                  },
+                ]}
                 onPress={(e) => {
                   e.stopPropagation();
                   shareProperty(property);
                 }}
                 activeOpacity={0.7}
               >
-                <Ionicons name="share-social-outline" size={18} color={themeColors.text} />
+                <Ionicons name="share-social-outline" size={isSmallCompact ? 15 : 18} color={themeColors.text} />
               </TouchableOpacity>
 
               <TouchableOpacity 
-                style={[styles.compactFavorite, { top: 12, right: 12, backgroundColor: 'rgba(255,255,255,0.9)' }]} 
+                style={[
+                  styles.compactFavorite,
+                  {
+                    top: isSmallCompact ? 10 : 12,
+                    right: isSmallCompact ? 10 : 12,
+                    backgroundColor: compactActionBg,
+                    width: isSmallCompact ? 30 : 36,
+                    height: isSmallCompact ? 30 : 36,
+                    borderRadius: isSmallCompact ? 15 : 18,
+                  },
+                ]}
                 onPress={toggleFavorite}
                 activeOpacity={0.7}
               >
                 <Animated.View style={heartAnimatedStyle}>
-                  <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={18} color={isFavorite ? themeColors.danger : themeColors.text} />
+                  <Ionicons
+                    name={isFavorite ? "heart" : "heart-outline"}
+                    size={isSmallCompact ? 15 : 18}
+                    color={isFavorite ? themeColors.danger : themeColors.text}
+                  />
                 </Animated.View>
               </TouchableOpacity>
             </View>
 
-            <View style={styles.compactBody}>
-              <View style={styles.compactTitleRow}>
-                <View style={{ flex: 1 }}>
-                  <AppText variant="body" weight="bold" numberOfLines={1} style={{ marginBottom: 4, fontSize: 14, color: themeColors.text }}>
-                    {propertyTitle}
-                  </AppText>
-                  <AppText variant="tiny" color={themeColors.subtext} numberOfLines={1} style={{ marginBottom: 8, fontSize: 10 }}>
-                    {property.parent_property_id && property.unit_number ? `${typeLabel} in ${fullAddress}` : fullAddress}
-                  </AppText>
-                </View>
-                {!isContainer && (
-                  <View style={styles.compactBedsAndBaths}>
-                    <View style={[styles.compactMetaItemBadge, metaBadgeThemeStyle]}>
-                      <Ionicons name="bed-outline" size={13} color={themeColors.subtext} />
-                      <AppText variant="tiny" weight="medium" color={themeColors.text} style={{ marginLeft: 3, fontSize: 11 }}>
-                        {bedLabel}
+            <View style={[styles.compactBody, isSmallCompact && styles.compactBodySmall]}>
+              {isSmallCompact ? null : (
+                <View style={styles.compactTitleRow}>
+                  <>
+                    <View style={{ flex: 1 }}>
+                      <AppText variant="body" weight="bold" numberOfLines={1} style={{ marginBottom: 4, fontSize: 14, color: themeColors.text }}>
+                        {propertyTitle}
+                      </AppText>
+                      <AppText variant="tiny" color={themeColors.subtext} numberOfLines={1} style={{ marginBottom: 8, fontSize: 10 }}>
+                        {property.parent_property_id && property.unit_number ? `${typeLabel} in ${fullAddress}` : fullAddress}
                       </AppText>
                     </View>
-                    <View style={[styles.compactMetaItemBadge, metaBadgeThemeStyle]}>
-                      <MaterialCommunityIcons name="shower" size={13} color={themeColors.subtext} />
-                      <AppText variant="tiny" weight="medium" color={themeColors.text} style={{ marginLeft: 3, fontSize: 11 }}>
-                        {property.bathrooms || 0}
-                      </AppText>
-                    </View>
-                  </View>
-                )}
-                {isContainer && (
-                  <View style={styles.compactBedsAndBaths}>
-                    <View style={[styles.compactMetaItemBadge, metaBadgeThemeStyle]}>
-                      <Ionicons name="business-outline" size={13} color={themeColors.subtext} />
-                      <AppText variant="tiny" weight="medium" color={themeColors.text} style={{ marginLeft: 3, fontSize: 11 }}>
-                        {property.total_children || 0}
-                      </AppText>
-                    </View>
-                  </View>
-                )}
-              </View>
-              <View style={[styles.compactBottomRow, { borderTopColor: dividerColor }]}>
-                <AppText variant="body" weight="bold" color="#059669" numberOfLines={1} style={{ fontSize: 14 }}>
-                  {displayPrice}
-                </AppText>
-                {(property.Agent || property.Creator) ? (
-                  <View style={styles.compactAgentInfo}>
-                    {(property.Agent?.profile_picture || property.Creator?.profile_picture) ? (
-                      <Image 
-                        source={{ uri: getImageUrl(property.Agent?.profile_picture || property.Creator?.profile_picture) || '' }}
-                        style={styles.compactAgentAvatar}
-                        contentFit="cover"
-                      />
-                    ) : (
-                      <View style={[styles.compactAgentAvatar, { justifyContent: 'center', alignItems: 'center' }]}>
-                        <Ionicons name="person" size={12} color={themeColors.subtext} />
+                    {!isContainer && (
+                      <View style={styles.compactBedsAndBaths}>
+                        <View style={[styles.compactMetaItemBadge, metaBadgeThemeStyle]}>
+                          <Ionicons name="bed-outline" size={13} color={themeColors.subtext} />
+                          <AppText variant="tiny" weight="medium" color={themeColors.text} style={{ marginLeft: 3, fontSize: 11 }}>
+                            {bedLabel}
+                          </AppText>
+                        </View>
+                        <View style={[styles.compactMetaItemBadge, metaBadgeThemeStyle]}>
+                          <MaterialCommunityIcons name="shower" size={13} color={themeColors.subtext} />
+                          <AppText variant="tiny" weight="medium" color={themeColors.text} style={{ marginLeft: 3, fontSize: 11 }}>
+                            {property.bathrooms || 0}
+                          </AppText>
+                        </View>
                       </View>
                     )}
-                  </View>
-                ) : null}
-              </View>
+                    {isContainer && (
+                      <View style={styles.compactBedsAndBaths}>
+                        <View style={[styles.compactMetaItemBadge, metaBadgeThemeStyle]}>
+                          <Ionicons name="business-outline" size={13} color={themeColors.subtext} />
+                          <AppText variant="tiny" weight="medium" color={themeColors.text} style={{ marginLeft: 3, fontSize: 11 }}>
+                            {property.total_children || 0}
+                          </AppText>
+                        </View>
+                      </View>
+                    )}
+                  </>
+                </View>
+              )}
+              {isSmallCompact ? null : (
+                <View style={[styles.compactBottomRow, { borderTopColor: dividerColor }]}>
+                  <AppText variant="body" weight="bold" color={themeColors.primary} numberOfLines={1} style={{ fontSize: 14 }}>
+                    {displayPrice}
+                  </AppText>
+                  {(property.Agent || property.Creator) ? (
+                    <View style={styles.compactAgentInfo}>
+                      {(property.Agent?.profile_picture || property.Creator?.profile_picture) ? (
+                        <Image 
+                          source={{ uri: getImageUrl(property.Agent?.profile_picture || property.Creator?.profile_picture) || '' }}
+                          style={styles.compactAgentAvatar}
+                          contentFit="cover"
+                        />
+                      ) : (
+                        <View style={[styles.compactAgentAvatar, { justifyContent: 'center', alignItems: 'center' }]}>
+                          <Ionicons name="person" size={12} color={themeColors.subtext} />
+                        </View>
+                      )}
+                    </View>
+                  ) : null}
+                </View>
+              )}
             </View>
+            {isSmallCompact && (
+              <View style={styles.smallCompactInfoOverlay}>
+                <AppText variant="tiny" weight="bold" color={themeColors.warning} numberOfLines={1} style={styles.smallCompactPrice}>
+                  {displayPrice}
+                </AppText>
+                <AppText variant="tiny" weight="bold" color={themeColors.white} numberOfLines={1} style={styles.smallCompactTitle}>
+                  {propertyTitle}
+                </AppText>
+                <View style={styles.smallCompactMetaRow}>
+                  <View style={styles.smallCompactMetaItem}>
+                    <Ionicons name="bed-outline" size={11} color={themeColors.white} />
+                    <AppText variant="tiny" weight="semiBold" color={themeColors.white} style={styles.smallCompactMetaText}>
+                      {bedLabel}
+                    </AppText>
+                  </View>
+                  <View style={styles.smallCompactMetaItem}>
+                    <MaterialCommunityIcons name="shower" size={11} color={themeColors.white} />
+                    <AppText variant="tiny" weight="semiBold" color={themeColors.white} style={styles.smallCompactMetaText}>
+                      {property.bathrooms || 0}
+                    </AppText>
+                  </View>
+                  <View style={styles.smallCompactMetaItem}>
+                    <MaterialCommunityIcons name="layers-outline" size={11} color={themeColors.white} />
+                    <AppText variant="tiny" weight="semiBold" color={themeColors.white} style={styles.smallCompactMetaText}>
+                      {property.floor || '-'}
+                    </AppText>
+                  </View>
+                  <View style={styles.smallCompactMetaItem}>
+                    <Ionicons name="pricetag-outline" size={11} color={themeColors.white} />
+                    <AppText variant="tiny" weight="semiBold" color={themeColors.white} style={styles.smallCompactMetaText}>
+                      {property.unit_number || '-'}
+                    </AppText>
+                  </View>
+                </View>
+              </View>
+            )}
           </View>
         </Animated.View>
       </Pressable>
@@ -707,6 +828,9 @@ const styles = StyleSheet.create({
     width: '100%',
     position: 'relative',
   },
+  compactMediaSmall: {
+    height: 155,
+  },
   compactFlatList: {
     width: '100%',
     height: '100%',
@@ -714,6 +838,9 @@ const styles = StyleSheet.create({
   compactImageContainer: {
     width: '100%',
     height: 180,
+  },
+  compactImageContainerSmall: {
+    height: 155,
   },
   compactImage: {
     width: '100%',
@@ -792,6 +919,40 @@ const styles = StyleSheet.create({
   },
   compactBody: {
     padding: 12,
+  },
+  compactBodySmall: {
+    padding: 0,
+    height: 0,
+    overflow: 'hidden',
+  },
+  smallCompactInfoOverlay: {
+    position: 'absolute',
+    left: 10,
+    right: 10,
+    bottom: 10,
+    zIndex: 3,
+  },
+  smallCompactPrice: {
+    fontSize: 11,
+    marginBottom: 3,
+  },
+  smallCompactTitle: {
+    fontSize: 11,
+    marginBottom: 5,
+  },
+  smallCompactMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  smallCompactMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  smallCompactMetaText: {
+    marginLeft: 3,
+    fontSize: 9,
   },
   compactTitleRow: {
     flexDirection: 'row',

@@ -174,6 +174,9 @@ const StepMedia = () => {
       <AppText variant="caption" style={[{ color: theme.subtext }, styles.sectionSubtitle]}>
         Properties with 5+ high-quality photos get 3x more inquiries.
       </AppText>
+      <AppText variant="tiny" weight="semiBold" style={{ color: theme.subtext, marginTop: -14, marginBottom: 16 }}>
+        At least 1 photo is required. Video and documents are optional.
+      </AppText>
 
       <View style={styles.uploadCards}>
         <TouchableOpacity 

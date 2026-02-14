@@ -50,8 +50,9 @@ const ParentProfileScreen = observer(() => {
   const theme = useThemeColor();
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'features' | 'units'>('features');
+  const [activeTab, setActiveTab] = useState<'features' | 'available' | 'allProperties'>('features');
   const [selectedType, setSelectedType] = useState<string>('ALL');
+  const [selectedBeds, setSelectedBeds] = useState<string>('ALL');
 
   const parentId = Number(id);
   const category = Array.isArray(categoryParam) ? categoryParam[0] : categoryParam;
@@ -117,9 +118,41 @@ const ParentProfileScreen = observer(() => {
   const parent = parentStore.currentParent;
   const units = parentStore.children;
 
-  const filteredUnits = selectedType === 'ALL' 
-    ? units 
-    : units.filter(u => u.property_type?.toUpperCase() === selectedType.toUpperCase());
+  const parentAgentId = parent?.agent_id || parent?.created_by_user_id;
+  const agentAddedUnits = units.filter((u) => {
+    const unitAgentId = u?.agent_id || u?.created_by_user_id;
+    return !!parentAgentId && String(unitAgentId) === String(parentAgentId);
+  });
+
+  const availableUnits = units.filter((u) => {
+    const isSale = !!u?.forSale || !!u?.is_available_for_sale || !!u?.for_sale || !!u?.isAvailableForSale;
+    const isRent = !!u?.forRent || !!u?.is_available_for_rent || !!u?.for_rent || !!u?.isAvailableForRent;
+    return isSale || isRent;
+  });
+
+  const unitsForTab =
+    activeTab === 'available'
+      ? availableUnits
+      : activeTab === 'allProperties'
+        ? agentAddedUnits
+        : units;
+
+  const bedFilters = ['ALL', '2', '3', '4', '5', '6', 'OTHERS'];
+  const filteredUnits = unitsForTab.filter((u) => {
+    const typeMatch =
+      selectedType === 'ALL' || u.property_type?.toUpperCase() === selectedType.toUpperCase();
+
+    if (!typeMatch) return false;
+
+    if (selectedBeds === 'ALL') return true;
+
+    const bedrooms = Number(u?.bedrooms);
+    if (selectedBeds === 'OTHERS') {
+      return !Number.isFinite(bedrooms) || bedrooms < 2 || bedrooms > 6;
+    }
+
+    return bedrooms === Number(selectedBeds);
+  });
 
   if (!parent) {
     return (
@@ -215,7 +248,7 @@ const ParentProfileScreen = observer(() => {
           )}
         </View>
 
-        <View style={styles.content}>
+        <View style={[styles.content, { backgroundColor: theme.background }]}>
           <View style={styles.headerInfo}>
             <View style={styles.titleRow}>
               <AppText variant="h2" weight="bold" color={theme.text}>{parent.title}</AppText>
@@ -242,15 +275,27 @@ const ParentProfileScreen = observer(() => {
               </AppText>
             </TouchableOpacity>
             <TouchableOpacity 
-              style={[styles.tabItem, activeTab === 'units' && { borderBottomColor: theme.primary, borderBottomWidth: 2 }]}
-              onPress={() => setActiveTab('units')}
+              style={[styles.tabItem, activeTab === 'available' && { borderBottomColor: theme.primary, borderBottomWidth: 2 }]}
+              onPress={() => setActiveTab('available')}
             >
               <AppText 
-                variant="body" 
-                weight={activeTab === 'units' ? "bold" : "regular"}
-                color={activeTab === 'units' ? theme.primary : theme.subtext}
+                variant="small" 
+                weight={activeTab === 'available' ? "bold" : "regular"}
+                color={activeTab === 'available' ? theme.primary : theme.subtext}
               >
-                Homes ({units.length})
+                Available Homes ({availableUnits.length})
+              </AppText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tabItem, activeTab === 'allProperties' && { borderBottomColor: theme.primary, borderBottomWidth: 2 }]}
+              onPress={() => setActiveTab('allProperties')}
+            >
+              <AppText
+                variant="small"
+                weight={activeTab === 'allProperties' ? "bold" : "regular"}
+                color={activeTab === 'allProperties' ? theme.primary : theme.subtext}
+              >
+                All Properties ({agentAddedUnits.length})
               </AppText>
             </TouchableOpacity>
           </View>
@@ -363,7 +408,9 @@ const ParentProfileScreen = observer(() => {
           ) : (
             <View style={styles.section}>
               <View style={styles.unitsHeader}>
-                <AppText variant="h3" weight="bold" color={theme.text}>Units</AppText>
+                <AppText variant="h3" weight="bold" color={theme.text}>
+                  {activeTab === 'available' ? 'Available Homes' : 'All Properties'}
+                </AppText>
                 {isOwner && (
                   <TouchableOpacity 
                     style={[styles.addUnitBtn, { backgroundColor: theme.primary }]}
@@ -409,29 +456,80 @@ const ParentProfileScreen = observer(() => {
                 ))}
               </ScrollView>
 
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.filterScroll}
+                contentContainerStyle={styles.filterContent}
+              >
+                {bedFilters.map((bed) => (
+                  <TouchableOpacity
+                    key={bed}
+                    style={[
+                      styles.filterChip,
+                      { backgroundColor: theme.card, borderColor: theme.border },
+                      selectedBeds === bed && { backgroundColor: theme.primary, borderColor: theme.primary },
+                    ]}
+                    onPress={() => setSelectedBeds(bed)}
+                  >
+                    <AppText
+                      variant="tiny"
+                      weight="bold"
+                      color={selectedBeds === bed ? '#fff' : theme.subtext}
+                    >
+                      {bed === 'ALL' ? 'All Beds' : bed === 'OTHERS' ? 'Others' : `${bed} Beds`}
+                    </AppText>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
               {filteredUnits.length > 0 ? (
-                <FlatList
-                  data={filteredUnits}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ paddingRight: 20 }}
-                  keyExtractor={(unit) => unit.property_id.toString()}
-                  renderItem={({ item: unit, index }) => (
-                    <View style={{ marginRight: 16, width: 280 }}>
-                      <PropertyCard 
-                        property={unit} 
-                        index={index}
-                        variant="compact"
-                        onPress={() => router.push(`/property/${unit.property_id}`)}
-                      />
-                    </View>
-                  )}
-                />
+                activeTab === 'allProperties' ? (
+                  <FlatList
+                    data={filteredUnits}
+                    numColumns={2}
+                    scrollEnabled={false}
+                    key={'all-properties-grid'}
+                    columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: 12 }}
+                    contentContainerStyle={{ paddingBottom: 6 }}
+                    keyExtractor={(unit) => unit.property_id.toString()}
+                    renderItem={({ item: unit, index }) => (
+                      <View style={{ width: (width - 56) / 2 }}>
+                        <PropertyCard
+                          property={unit}
+                          index={index}
+                          variant="compact"
+                          compactDensity="small"
+                          onPress={() => router.push(`/property/${unit.property_id}`)}
+                        />
+                      </View>
+                    )}
+                  />
+                ) : (
+                  <FlatList
+                    data={filteredUnits}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ paddingRight: 20 }}
+                    keyExtractor={(unit) => unit.property_id.toString()}
+                    renderItem={({ item: unit, index }) => (
+                      <View style={{ marginRight: 12, width: 250 }}>
+                        <PropertyCard 
+                          property={unit} 
+                          index={index}
+                          variant="compact"
+                          compactDensity="small"
+                          onPress={() => router.push(`/property/${unit.property_id}`)}
+                        />
+                      </View>
+                    )}
+                  />
+                )
               ) : (
-                <View style={[styles.emptyUnits, { backgroundColor: theme.card }]}>
+                <View style={[styles.emptyUnits, { backgroundColor: theme.card, borderColor: theme.border }]}>
                   <Ionicons name="home-outline" size={40} color={theme.border} />
                   <AppText variant="body" color={theme.subtext} style={{ marginTop: 10 }}>
-                    No units listed yet.
+                    {activeTab === 'available' ? 'No available homes found.' : 'No properties added by this agent yet.'}
                   </AppText>
                 </View>
               )}
@@ -450,7 +548,7 @@ const styles = StyleSheet.create({
   backButton: { position: 'absolute', left: 20, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
   headerActions: { position: 'absolute', right: 20, flexDirection: 'row', gap: 10 },
   actionButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
-  content: { padding: 20, borderTopLeftRadius: 30, borderTopRightRadius: 30, marginTop: -30, backgroundColor: 'white', minHeight: 500 },
+  content: { padding: 20, borderTopLeftRadius: 30, borderTopRightRadius: 30, marginTop: -30, minHeight: 500 },
   headerInfo: { marginBottom: 24 },
   titleRow: { marginBottom: 8 },
   locationRow: { flexDirection: 'row', alignItems: 'center' },
@@ -471,7 +569,7 @@ const styles = StyleSheet.create({
   unitsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   addUnitBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, gap: 4 },
   unitsList: { gap: 16 },
-  emptyUnits: { padding: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed', borderWidth: 1.5, borderColor: '#ddd' },
+  emptyUnits: { padding: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed', borderWidth: 1.5 },
   filterScroll: { marginBottom: 16 },
   filterContent: { gap: 8 },
   filterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, borderWidth: 1 }

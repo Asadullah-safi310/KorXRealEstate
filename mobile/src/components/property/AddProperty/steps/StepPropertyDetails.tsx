@@ -128,7 +128,7 @@ const StepPropertyDetails = () => {
       {!values.is_parent && (
         <Animated.View layout={smoothLayout}>
           <AppText variant="caption" weight="semiBold" style={{ color: theme.text, marginBottom: 8 }}>
-            Total Area
+            Total Area (Optional)
           </AppText>
           <View style={styles.areaInputRow}>
             <View style={{ flex: 1 }}>

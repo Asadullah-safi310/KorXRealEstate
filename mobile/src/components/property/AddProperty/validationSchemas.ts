@@ -94,10 +94,16 @@ export const StepBasicInfoSchema = Yup.object().shape({
 });
 
 export const StepPropertyDetailsSchema = Yup.object().shape({
-  area_size: Yup.number().nullable().when('is_parent', {
-    is: false,
-    then: (s) => s.required('Area size is required').positive(),
-  }),
+  area_size: Yup.number()
+    .transform((value, originalValue) => {
+      if (originalValue === '' || originalValue === null || originalValue === undefined) return null;
+      return value;
+    })
+    .nullable()
+    .when('is_parent', {
+      is: false,
+      then: (s) => s.positive('Area size must be a positive number').nullable(),
+    }),
   bedrooms: Yup.number().nullable(),
   bathrooms: Yup.number().nullable(),
   floor: Yup.string().nullable(),
@@ -113,10 +119,25 @@ export const StepPropertyDetailsSchema = Yup.object().shape({
 });
 
 export const StepMediaSchema = Yup.object().shape({
-  media: Yup.array(),
-}).test('at-least-one-image', 'At least one image is required', function(value) {
-    const { media, existingMedia } = this.parent || {};
-    return (media?.length || 0) + (existingMedia?.length || 0) > 0;
+  media: Yup.array().test('at-least-one-photo', 'At least one photo is required', function(media) {
+    const existingMedia = this.parent?.existingMedia || [];
+
+    const hasNewPhoto = (media || []).some((item: any) => {
+      const category = (item?.category || '').toLowerCase();
+      const mimeType = (item?.mimeType || '').toLowerCase();
+      return category === 'image' || mimeType.startsWith('image/');
+    });
+
+    const hasExistingPhoto = (existingMedia || []).some((item: any) => {
+      const type = (item?.type || '').toLowerCase();
+      const category = (item?.category || '').toLowerCase();
+      const mimeType = (item?.mimeType || '').toLowerCase();
+      return type === 'photo' || category === 'image' || mimeType.startsWith('image/');
+    });
+
+    return hasNewPhoto || hasExistingPhoto;
+  }),
+  existingMedia: Yup.array(),
 });
 
 export const StepPricingSchema = Yup.object().shape({
@@ -140,18 +161,13 @@ export const StepMapLocationSchema = Yup.object().shape({
 });
 
 export const StepLocationAmenitiesSchema = Yup.object().shape({
-  province_id: Yup.string().when(['parent_property_id', 'parentId', 'apartment_id'], {
-    is: (p1: any, p2: any, p3: any) => !p1 && !p2 && !p3,
-    then: (s) => s.required('Province is required'),
-  }),
-  district_id: Yup.string().when(['parent_property_id', 'parentId', 'apartment_id'], {
-    is: (p1: any, p2: any, p3: any) => !p1 && !p2 && !p3,
-    then: (s) => s.required('District is required'),
-  }),
-  address: Yup.string().when(['parent_property_id', 'parentId', 'apartment_id'], {
-    is: (p1: any, p2: any, p3: any) => !p1 && !p2 && !p3,
-    then: (s) => s.required('Address is required'),
-  }),
+  province_id: Yup.mixed()
+    .test('province-required', 'Province is required', (value) => value !== '' && value !== null && value !== undefined),
+  district_id: Yup.mixed()
+    .test('district-required', 'City is required', (value) => value !== '' && value !== null && value !== undefined),
+  area_id: Yup.mixed()
+    .test('area-required', 'Area is required', (value) => value !== '' && value !== null && value !== undefined),
+  address: Yup.string().nullable(),
   amenities: Yup.array().nullable(),
 });
 

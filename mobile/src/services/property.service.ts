@@ -68,5 +68,8 @@ export const propertyService = {
   },
   addChildProperty: async (id: string | number, childData: any) => {
     return api.post(`/parents/${id}/children`, childData);
+  },
+  getNearbyPlaces: async (propertyId: string | number) => {
+    return api.get(`/public/properties/${propertyId}/nearby`);
   }
 };
