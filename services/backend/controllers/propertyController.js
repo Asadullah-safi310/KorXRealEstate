@@ -23,12 +23,58 @@ const sanitizeInt = (value) => {
   return isNaN(parsed) ? null : parsed;
 };
 
+// Helper to generate unique property code
+const generatePropertyCode = async (ownerName, agentName) => {
+  // Extract initials (uppercase, default to 'X' if missing)
+  const ownerInitial = (ownerName && ownerName.trim()) 
+    ? ownerName.trim()[0].toUpperCase() 
+    : 'X';
+  const agentInitial = (agentName && agentName.trim()) 
+    ? agentName.trim()[0].toUpperCase() 
+    : 'X';
+  
+  const maxAttempts = 10;
+  for (let i = 0; i < maxAttempts; i++) {
+    // Find the latest property code to determine next sequence number
+    const latestProperty = await Property.findOne({
+      where: { 
+        property_code: { [Op.ne]: null },
+        property_code: { [Op.like]: '%-KorX-%' }
+      },
+      order: [['property_id', 'DESC']],
+      attributes: ['property_code']
+    });
+
+    let nextNumber = 1;
+    if (latestProperty && latestProperty.property_code) {
+      // Extract the 6-digit sequence from format: XX-KorX-NNNNNN
+      const match = latestProperty.property_code.match(/\d+$/);
+      if (match) {
+        nextNumber = parseInt(match[0], 10) + 1;
+      }
+    }
+
+    // Format: {OwnerInitial}{AgentInitial}-KorX-{6-digit sequence}
+    const code = `${ownerInitial}${agentInitial}-KorX-${String(nextNumber).padStart(6, '0')}`;
+    
+    // Check for duplicates
+    const exists = await Property.findOne({ where: { property_code: code } });
+    if (!exists) {
+      return code;
+    }
+  }
+  
+  // Fallback if unable to generate unique code after max attempts
+  return `${ownerInitial}${agentInitial}-KorX-${Date.now()}`;
+};
+
 const createProperty = async (req, res) => {
   const transaction = await sequelize.transaction();
 
   try {
     const { 
-      owner_person_id, 
+      owner_person_id,
+      owner_name,
       agent_id, 
       property_type, 
       purpose, 
@@ -97,10 +143,16 @@ const createProperty = async (req, res) => {
       return res.status(400).json({ error: 'Province, District, and Address are required for standalone properties' });
     }
 
+    // Generate unique property code with owner and agent initials
+    const agentName = req.user ? req.user.full_name : null;
+    const propertyCode = await generatePropertyCode(owner_name, agentName);
+
     // Standalone properties: category='normal', record_kind='listing', is_parent=0, parent_property_id=NULL
     // Enforce standalone property rules per requirements
     const property = await Property.create({
       owner_person_id: sanitizedOwnerId,
+      owner_name: owner_name || null,
+      property_code: propertyCode,
       agent_id: sanitizedAgentId,
       created_by_user_id: req.user ? req.user.user_id : null,
       property_category: 'normal', // Standalone properties are ALWAYS 'normal' (enforced)
@@ -288,23 +340,43 @@ const searchProperties = async (req, res) => {
           { title: { [Op.like]: `%${search}%` } },
           { description: { [Op.like]: `%${search}%` } },
           { address: { [Op.like]: `%${search}%` } },
+          { city: { [Op.like]: `%${search}%` } },
+          { owner_name: { [Op.like]: `%${search}%` } },
+          { property_code: { [Op.like]: `%${search}%` } },
+          { '$Agent.full_name$': { [Op.like]: `%${search}%` } },
+          { '$Creator.full_name$': { [Op.like]: `%${search}%` } },
+          { '$ProvinceData.name$': { [Op.like]: `%${search}%` } },
+          { '$DistrictData.name$': { [Op.like]: `%${search}%` } },
+          { '$AreaData.name$': { [Op.like]: `%${search}%` } },
           { '$Parent.title$': { [Op.like]: `%${search}%` } },
           { '$Parent.address$': { [Op.like]: `%${search}%` } },
         ]
       });
     }
 
-    // Public marketplace rule:
-    // - Always active listings
-    // - Must be available for sale OR rent
-    // - Same result set for all users (no creator-based widening)
-    andCriteria.push({ status: 'active' });
-    andCriteria.push({
-      [Op.or]: [
-        { is_available_for_sale: true },
-        { is_available_for_rent: true }
-      ]
-    });
+    // Determine if this is a user querying their own properties
+    const isUserPropertyQuery = req.user && (
+      req.query.created_by_user_id || 
+      req.query.agent_id
+    );
+
+    // Public marketplace filters - only apply when not querying own properties
+    if (!isUserPropertyQuery) {
+      // Public marketplace rule:
+      // - Always active listings
+      // - Must be available for sale OR rent (BUT NOT for containers)
+      andCriteria.push({ status: 'active' });
+      
+      // Only apply availability filter for listings, not for containers
+      if (record_kind !== 'container') {
+        andCriteria.push({
+          [Op.or]: [
+            { is_available_for_sale: true },
+            { is_available_for_rent: true }
+          ]
+        });
+      }
+    }
 
     if (city) andCriteria.push({ city: { [Op.like]: `%${city}%` } });
     if (property_type) andCriteria.push({ property_type });
@@ -386,7 +458,8 @@ const updateProperty = async (req, res) => {
     console.log('User:', req.user?.user_id, req.user?.role);
     
     const { 
-      owner_person_id, 
+      owner_person_id,
+      owner_name,
       agent_id, 
       property_type, 
       purpose, 
@@ -452,6 +525,7 @@ const updateProperty = async (req, res) => {
 
     const updateData = {
       owner_person_id: sanitizedOwnerId !== undefined ? sanitizedOwnerId : property.owner_person_id,
+      owner_name: owner_name !== undefined ? owner_name : property.owner_name,
       agent_id: sanitizedAgentId !== undefined ? sanitizedAgentId : property.agent_id,
       property_type: property_type !== undefined ? property_type : property.property_type,
       purpose: purpose !== undefined ? purpose : property.purpose,

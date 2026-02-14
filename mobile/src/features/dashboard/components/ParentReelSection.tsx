@@ -9,9 +9,10 @@ interface ParentReelSectionProps {
   title: string;
   data: any[];
   category: 'tower' | 'apartment' | 'market' | 'sharak';
+  cardSizeScale?: number;
 }
 
-export const ParentReelSection = ({ title, data, category }: ParentReelSectionProps) => {
+export const ParentReelSection = ({ title, data, category, cardSizeScale = 1 }: ParentReelSectionProps) => {
   const themeColors = useThemeColor();
   const router = useRouter();
 
@@ -36,6 +37,7 @@ export const ParentReelSection = ({ title, data, category }: ParentReelSectionPr
         renderItem={({ item }) => (
           <ParentReelCard 
             item={{...item, category}} 
+            sizeScale={cardSizeScale}
             onPress={() => handlePress(item.id)}
           />
         )}

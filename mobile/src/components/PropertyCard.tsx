@@ -19,7 +19,7 @@ import {
   springConfig
 } from '../utils/animations';
 
-import { useThemeColor } from '../hooks/useThemeColor';
+import { useThemeColor, useCurrentTheme } from '../hooks/useThemeColor';
 import { AppText } from './AppText';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -34,6 +34,7 @@ interface PropertyCardProps {
 
 const PropertyCard = observer(({ property, onPress, index = 0, variant = 'default' }: PropertyCardProps) => {
   const themeColors = useThemeColor();
+  const currentTheme = useCurrentTheme();
   const router = useRouter();
   const [activeIndex, setActiveIndex] = useState(0);
   
@@ -43,10 +44,6 @@ const PropertyCard = observer(({ property, onPress, index = 0, variant = 'defaul
   
   const toggleFavorite = (e: any) => {
     e.stopPropagation();
-    if (!authStore.isAuthenticated) {
-      router.push('/login');
-      return;
-    }
     
     // Heart bounce animation
     heartScale.value = withSequence(
@@ -139,6 +136,7 @@ const PropertyCard = observer(({ property, onPress, index = 0, variant = 'defaul
     borderColor: themeColors.border,
     borderWidth: 1,
   };
+  const dividerColor = currentTheme === 'dark' ? '#334155' : '#cbd5e1';
   const displayPrice = isContainer 
     ? (property.property_category ? property.property_category.charAt(0).toUpperCase() + property.property_category.slice(1) : 'Building')
     : getPropertyDisplayPrice(property);
@@ -261,10 +259,10 @@ const PropertyCard = observer(({ property, onPress, index = 0, variant = 'defaul
             style={[cardAnimatedStyle]}
           >
             <View 
-              style={[styles.horizontalCard, { backgroundColor: '#fff' }]}
+              style={[styles.horizontalCard, { backgroundColor: themeColors.card }]}
             >
               {/* Image Section */}
-              <View style={styles.horizontalImageContainer}>
+              <View style={[styles.horizontalImageContainer, { backgroundColor: themeColors.surface }]}>
                 {photos.length > 0 ? (
                   <Image 
                     source={{ uri: getImageUrl(photos[0]) || '' }} 
@@ -283,15 +281,15 @@ const PropertyCard = observer(({ property, onPress, index = 0, variant = 'defaul
                 {/* Sale/Rent badges */}
                 <View style={styles.purposeBadgesContainer}>
                   {property.is_available_for_sale && (
-                    <View style={[styles.purposeBadge, { backgroundColor: '#10b981' }]}>
-                      <Text style={{ color: themeColors.white, fontSize: 10, fontWeight: 'bold' }}>
+                    <View style={[styles.purposeBadge, { backgroundColor: 'rgba(0,0,0,0.65)' }]}>
+                      <Text style={{ color: themeColors.white, fontSize: 7, fontWeight: '600' }}>
                         SALE
                       </Text>
                     </View>
                   )}
                   {property.is_available_for_rent && (
-                    <View style={[styles.purposeBadge, { backgroundColor: '#f59e0b', marginLeft: property.is_available_for_sale ? 4 : 0 }]}>
-                      <Text style={{ color: themeColors.white, fontSize: 10, fontWeight: 'bold' }}>
+                    <View style={[styles.purposeBadge, { backgroundColor: 'rgba(0,0,0,0.65)', marginLeft: property.is_available_for_sale ? 4 : 0 }]}>
+                      <Text style={{ color: themeColors.white, fontSize: 7, fontWeight: '600' }}>
                         RENT
                       </Text>
                     </View>
@@ -303,12 +301,12 @@ const PropertyCard = observer(({ property, onPress, index = 0, variant = 'defaul
               <View style={styles.horizontalContent}>
                 <View style={styles.horizontalHeader}>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, fontWeight: 'bold', color: themeColors.text, marginBottom: 4 }} numberOfLines={1}>
+                    <Text style={{ fontSize: 12, fontWeight: 'bold', color: themeColors.text, marginBottom: 4 }} numberOfLines={1}>
                       {propertyTitle}
                     </Text>
                     <View style={styles.horizontalLocation}>
-                      <Ionicons name="location" size={10} color={themeColors.subtext} />
-                      <Text style={{ fontSize: 9, color: themeColors.subtext, flex: 1, marginLeft: 2 }} numberOfLines={1}>
+                      <Ionicons name="location" size={9} color={themeColors.subtext} />
+                      <Text style={{ fontSize: 8, color: themeColors.subtext, flex: 1, marginLeft: 2 }} numberOfLines={1}>
                         {fullAddress}
                       </Text>
                     </View>
@@ -319,35 +317,35 @@ const PropertyCard = observer(({ property, onPress, index = 0, variant = 'defaul
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
                     <Animated.View style={heartAnimatedStyle}>
-                      <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={20} color={isFavorite ? themeColors.danger : themeColors.subtext} />
+                      <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={18} color={isFavorite ? themeColors.danger : themeColors.subtext} />
                     </Animated.View>
                   </TouchableOpacity>
                 </View>
 
-                <View style={styles.horizontalMetaRow}>
+                <View style={styles.horizontalPriceRow}>
+                  <Text style={{ fontSize: 13, fontWeight: '500', color: themeColors.primary }} numberOfLines={1}>
+                    {displayPrice}
+                  </Text>
+                </View>
+
+                <View style={[styles.horizontalBottomRow, { borderTopColor: dividerColor }]}>
                   {!isContainer ? (
                     <>
                       <View style={[styles.horizontalMetaItemBadge, metaBadgeThemeStyle]}>
-                        <Ionicons name="bed-outline" size={13} color={themeColors.subtext} />
-                        <Text style={{ marginLeft: 3, fontSize: 11, fontWeight: '500', color: themeColors.text }}>{bedLabel}</Text>
+                        <Ionicons name="bed-outline" size={11} color={themeColors.subtext} />
+                        <Text style={{ marginLeft: 3, fontSize: 9, fontWeight: '500', color: themeColors.text }}>{bedLabel}</Text>
                       </View>
                       <View style={[styles.horizontalMetaItemBadge, metaBadgeThemeStyle]}>
-                        <MaterialCommunityIcons name="shower" size={13} color={themeColors.subtext} />
-                        <Text style={{ marginLeft: 3, fontSize: 11, fontWeight: '500', color: themeColors.text }}>{bathLabel}</Text>
+                        <MaterialCommunityIcons name="shower" size={11} color={themeColors.subtext} />
+                        <Text style={{ marginLeft: 3, fontSize: 9, fontWeight: '500', color: themeColors.text }}>{bathLabel}</Text>
                       </View>
                     </>
                   ) : (
                     <View style={[styles.horizontalMetaItemBadge, metaBadgeThemeStyle]}>
-                      <Ionicons name="business-outline" size={13} color={themeColors.subtext} />
-                      <Text style={{ marginLeft: 3, fontSize: 11, fontWeight: '500', color: themeColors.text }}>{property.total_children || 0}</Text>
+                      <Ionicons name="business-outline" size={11} color={themeColors.subtext} />
+                      <Text style={{ marginLeft: 3, fontSize: 9, fontWeight: '500', color: themeColors.text }}>{property.total_children || 0}</Text>
                     </View>
                   )}
-                </View>
-
-                <View style={styles.horizontalBottomRow}>
-                  <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#059669' }} numberOfLines={1}>
-                    {displayPrice}
-                  </Text>
                   {(property.Agent || property.Creator) ? (
                     (property.Agent?.profile_picture || property.Creator?.profile_picture) ? (
                       <Image 
@@ -356,8 +354,8 @@ const PropertyCard = observer(({ property, onPress, index = 0, variant = 'defaul
                         contentFit="cover"
                       />
                     ) : (
-                      <View style={[styles.horizontalAgentAvatar, { justifyContent: 'center', alignItems: 'center' }]}>
-                        <Ionicons name="person" size={12} color={themeColors.subtext} />
+                      <View style={[styles.horizontalAgentAvatar, { justifyContent: 'center', alignItems: 'center', backgroundColor: themeColors.surface }]}>
+                        <Ionicons name="person" size={11} color={themeColors.subtext} />
                       </View>
                     )
                   ) : null}
@@ -390,18 +388,15 @@ const PropertyCard = observer(({ property, onPress, index = 0, variant = 'defaul
           >
             <View style={styles.compactMedia}>
               {photos.length > 0 ? (
-                <FlatList
-                  data={photos}
-                  renderItem={renderImageItem}
-                  keyExtractor={(_, idx) => `compact-${idx}`}
-                  horizontal
-                  pagingEnabled
-                  showsHorizontalScrollIndicator={false}
-                  onScroll={handleScroll}
-                  scrollEventThrottle={16}
-                  style={styles.compactFlatList}
-                  nestedScrollEnabled={true}
-                />
+                <Pressable onPress={onPress} style={styles.compactImageContainer}>
+                  <Image
+                    source={{ uri: getImageUrl(photos[0]) || '' }}
+                    style={styles.compactImage}
+                    contentFit="cover"
+                    transition={300}
+                    placeholder={DefaultPropertyImage}
+                  />
+                </Pressable>
               ) : (
                 <View>
                   <Image source={DefaultPropertyImage} style={styles.compactImage} contentFit="cover" />
@@ -427,8 +422,6 @@ const PropertyCard = observer(({ property, onPress, index = 0, variant = 'defaul
                 )}
               </View>
               
-              <PaginationDots length={photos.length} active={activeIndex} />
-
               <TouchableOpacity 
                 style={[styles.compactFavorite, { top: 12, right: 52, backgroundColor: 'rgba(255,255,255,0.9)' }]} 
                 onPress={(e) => {
@@ -488,7 +481,7 @@ const PropertyCard = observer(({ property, onPress, index = 0, variant = 'defaul
                   </View>
                 )}
               </View>
-              <View style={styles.compactBottomRow}>
+              <View style={[styles.compactBottomRow, { borderTopColor: dividerColor }]}>
                 <AppText variant="body" weight="bold" color="#059669" numberOfLines={1} style={{ fontSize: 14 }}>
                   {displayPrice}
                 </AppText>
@@ -664,7 +657,7 @@ const PropertyCard = observer(({ property, onPress, index = 0, variant = 'defaul
               )}
             </View>
             
-            <View style={styles.agentRow}>
+            <View style={[styles.agentRow, { borderTopColor: dividerColor }]}>
               <View style={styles.agentInfo}>
                 {(property.Agent || property.Creator) ? (
                   <>
@@ -1071,7 +1064,6 @@ const styles = StyleSheet.create({
     width: 140,
     height: 140,
     position: 'relative',
-    backgroundColor: '#f0f0f0',
   },
   horizontalImage: {
     width: '100%',
@@ -1110,6 +1102,9 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     padding: 4,
   },
+  horizontalPriceRow: {
+    marginVertical: 6,
+  },
   horizontalMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1123,7 +1118,6 @@ const styles = StyleSheet.create({
   horizontalMetaItemBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f7fafc',
     paddingHorizontal: 7,
     paddingVertical: 4,
     borderRadius: 5,
@@ -1135,13 +1129,11 @@ const styles = StyleSheet.create({
     marginTop: 6,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
   },
   horizontalAgentAvatar: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#e2e8f0',
   },
 });
 

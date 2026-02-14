@@ -11,8 +11,11 @@ export interface FilterState {
   purpose: string;
   min_price: string;
   max_price: string;
+  currency: string;
   bedrooms: string;
+  bathrooms: string;
   agent_id: string;
+  amenities: string[];
 }
 
 class FilterStore {
@@ -27,8 +30,11 @@ class FilterStore {
     purpose: '',
     min_price: '',
     max_price: '',
+    currency: 'USD',
     bedrooms: '',
+    bathrooms: '',
     agent_id: '',
+    amenities: [],
   };
 
   constructor() {
@@ -36,10 +42,13 @@ class FilterStore {
   }
 
   get hasActiveFilters(): boolean {
-    return Object.values(this.filters).some(v => v !== '');
+    return Object.entries(this.filters).some(([key, value]) => {
+      if (key === 'amenities') return Array.isArray(value) && value.length > 0;
+      return value !== '' && value !== 'USD';
+    });
   }
 
-  updateFilter = (name: keyof FilterState, value: string) => {
+  updateFilter = (name: keyof FilterState, value: any) => {
     this.filters[name] = value;
   };
 
@@ -59,8 +68,11 @@ class FilterStore {
       purpose: '',
       min_price: '',
       max_price: '',
+      currency: 'USD',
       bedrooms: '',
+      bathrooms: '',
       agent_id: '',
+      amenities: [],
     };
   };
 }

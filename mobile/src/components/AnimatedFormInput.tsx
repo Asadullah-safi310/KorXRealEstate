@@ -3,8 +3,7 @@ import {
   View, 
   TextInput, 
   StyleSheet, 
-  TextInputProps,
-  ColorValue
+  TextInputProps
 } from 'react-native';
 import Animated, { 
   useAnimatedStyle, 
@@ -22,6 +21,7 @@ interface AnimatedFormInputProps extends TextInputProps {
   error?: string;
   touched?: boolean;
   icon?: React.ReactNode;
+  rightAdornment?: React.ReactNode;
   containerStyle?: any;
 }
 
@@ -30,6 +30,7 @@ export const AnimatedFormInput: React.FC<AnimatedFormInputProps> = ({
   error, 
   touched, 
   icon,
+  rightAdornment,
   style,
   containerStyle,
   onFocus,
@@ -83,6 +84,7 @@ export const AnimatedFormInput: React.FC<AnimatedFormInputProps> = ({
           placeholderTextColor={theme.text + '40'}
           {...props}
         />
+        {rightAdornment && <View style={styles.rightAdornment}>{rightAdornment}</View>}
       </Animated.View>
 
       {touched && error && (
@@ -120,6 +122,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Inter-Medium',
     height: '100%',
+  },
+  rightAdornment: {
+    marginLeft: 10,
   },
   errorContainer: {
     marginTop: 4,

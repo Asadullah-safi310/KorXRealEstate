@@ -24,6 +24,7 @@ export const PROPERTY_TYPES_CONFIG = [
 export const initialValues = {
   // Step 1: Ownership & Type
   owner_person_id: '',
+  owner_name: '',
   agent_id: null,
   property_category: 'normal', // Default to standalone property
   record_kind: 'listing', // Default to listing (standalone or child unit)
@@ -88,6 +89,7 @@ export const StepBasicInfoSchema = Yup.object().shape({
   title: Yup.string().nullable(),
   description: Yup.string().nullable(),
   owner_person_id: Yup.string().nullable(),
+  owner_name: Yup.string().nullable(),
   agent_id: Yup.string().nullable(),
 });
 

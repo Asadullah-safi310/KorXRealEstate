@@ -16,16 +16,18 @@ interface ParentReelCardProps {
     category: 'tower' | 'apartment' | 'market' | 'sharak';
   };
   onPress: () => void;
+  sizeScale?: number;
 }
 
-export const ParentReelCard = ({ item, onPress }: ParentReelCardProps) => {
+export const ParentReelCard = ({ item, onPress, sizeScale = 1 }: ParentReelCardProps) => {
   // Bigger square cards for markets and sharaks, portrait for towers/apartments
-  const cardWidth = (item.category === 'market' || item.category === 'sharak') 
+  const baseWidth = (item.category === 'market' || item.category === 'sharak') 
     ? width * 0.55 
     : width * 0.42;
-    
-  const cardHeight = (item.category === 'market' || item.category === 'sharak') 
-    ? cardWidth 
+
+  const cardWidth = baseWidth * sizeScale;
+  const cardHeight = (item.category === 'market' || item.category === 'sharak')
+    ? cardWidth
     : cardWidth * 1.6;
   
   const unitLabel = 

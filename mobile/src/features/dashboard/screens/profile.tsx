@@ -5,6 +5,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import authStore from '../../../stores/AuthStore';
 import propertyStore from '../../../stores/PropertyStore';
+import { propertyService } from '../../../services/property.service';
 import { useThemeColor } from '../../../hooks/useThemeColor';
 import dealStore from '../../../stores/DealStore';
 import Avatar from '../../../components/Avatar';
@@ -45,20 +46,26 @@ const ProfileScreen = observer(() => {
   const isAgent = authStore.isAgent;
   const isAdmin = authStore.isAdmin;
   const [refreshing, setRefreshing] = useState(false);
+  const [myCreatedPropertiesCount, setMyCreatedPropertiesCount] = useState<number>(0);
   const isDark = themeStore.theme === 'dark' || (themeStore.theme === 'system' && system === 'dark');
 
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) return;
 
-    const promises: Promise<any>[] = [];
-    promises.push(propertyStore.fetchDashboardStats());
+    const promises: Promise<any>[] = [propertyStore.fetchDashboardStats()];
     if (isAgent) promises.push(dealStore.fetchDeals());
 
     if (userId) {
       promises.push(propertyStore.fetchUserProperties(userId, 5));
+      promises.push(propertyService.getUserProperties({ created_by_user_id: userId }));
     }
 
-    await Promise.all(promises);
+    const results = await Promise.all(promises);
+    if (userId) {
+      const createdByUserResponse = results[results.length - 1];
+      const createdCount = Array.isArray(createdByUserResponse?.data) ? createdByUserResponse.data.length : 0;
+      setMyCreatedPropertiesCount(createdCount);
+    }
   }, [isAuthenticated, isAgent, userId]);
 
   useEffect(() => {
@@ -116,6 +123,7 @@ const ProfileScreen = observer(() => {
     total_managed: 0, total_assigned: 0, total_listed: 0,
     public_listings: 0, for_sale: 0, for_rent: 0, active_deals: 0
   };
+  const myPropertiesCount = myCreatedPropertiesCount || stats.total_listed || 0;
 
   return (
     <ScreenLayout 
@@ -237,6 +245,7 @@ const ProfileScreen = observer(() => {
               index={1}
               icon="home-outline" 
               title="My Properties" 
+              subtitle={`${myPropertiesCount} ${myPropertiesCount === 1 ? 'property' : 'properties'}`}
               onPress={() => router.push('/profile/my-properties')} 
               theme={themeColors}
             />
@@ -336,7 +345,7 @@ const ProfileScreen = observer(() => {
   );
 });
 
-const MenuLink = ({ icon, iconFamily = 'Ionicons', title, onPress, theme, isLast, index = 0 }: any) => (
+const MenuLink = ({ icon, iconFamily = 'Ionicons', title, subtitle, onPress, theme, isLast, index = 0 }: any) => (
   <Animated.View entering={FadeInRight.delay(index * 50 + 400).duration(400)}>
     <TouchableOpacity 
       style={[styles.menuLink, !isLast && { borderBottomColor: theme.border, borderBottomWidth: 1 }]} 
@@ -349,7 +358,12 @@ const MenuLink = ({ icon, iconFamily = 'Ionicons', title, onPress, theme, isLast
           <MaterialCommunityIcons name={icon} size={20} color={theme.primary} />
         )}
       </View>
-      <Text style={[styles.menuLinkText, { color: theme.text }]}>{title}</Text>
+      <View style={styles.menuTextWrap}>
+        <Text style={[styles.menuLinkText, { color: theme.text }]}>{title}</Text>
+        {!!subtitle && (
+          <Text style={[styles.menuLinkSubtitle, { color: theme.subtext }]}>{subtitle}</Text>
+        )}
+      </View>
       <Ionicons name="chevron-forward" size={18} color={theme.border} />
     </TouchableOpacity>
   </Animated.View>
@@ -526,9 +540,17 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   menuLinkText: {
-    flex: 1,
     fontSize: 15,
     fontWeight: '700',
+  },
+  menuTextWrap: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  menuLinkSubtitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
   },
   logoutBtn: {
     flexDirection: 'row',

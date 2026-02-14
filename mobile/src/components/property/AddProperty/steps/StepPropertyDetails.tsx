@@ -208,11 +208,13 @@ const StepPropertyDetails = () => {
             label="Bedrooms"
             value={values.bedrooms}
             onChange={(v: number) => setFieldValue('bedrooms', v)}
+            max={20}
           />
           <CustomSlider
             label="Bathrooms"
             value={values.bathrooms}
             onChange={(v: number) => setFieldValue('bathrooms', v)}
+            max={20}
           />
         </Animated.View>
       )}

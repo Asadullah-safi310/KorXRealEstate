@@ -22,6 +22,51 @@ const sanitizeInt = (value) => {
   return isNaN(parsed) ? null : parsed;
 };
 
+// Helper to generate unique property code
+const generatePropertyCode = async (ownerName, agentName) => {
+  // Extract initials (uppercase, default to 'X' if missing)
+  const ownerInitial = (ownerName && ownerName.trim()) 
+    ? ownerName.trim()[0].toUpperCase() 
+    : 'X';
+  const agentInitial = (agentName && agentName.trim()) 
+    ? agentName.trim()[0].toUpperCase() 
+    : 'X';
+  
+  const maxAttempts = 10;
+  for (let i = 0; i < maxAttempts; i++) {
+    // Find the latest property code to determine next sequence number
+    const latestProperty = await Property.findOne({
+      where: { 
+        property_code: { [Op.ne]: null },
+        property_code: { [Op.like]: '%-KorX-%' }
+      },
+      order: [['property_id', 'DESC']],
+      attributes: ['property_code']
+    });
+
+    let nextNumber = 1;
+    if (latestProperty && latestProperty.property_code) {
+      // Extract the 6-digit sequence from format: XX-KorX-NNNNNN
+      const match = latestProperty.property_code.match(/\d+$/);
+      if (match) {
+        nextNumber = parseInt(match[0], 10) + 1;
+      }
+    }
+
+    // Format: {OwnerInitial}{AgentInitial}-KorX-{6-digit sequence}
+    const code = `${ownerInitial}${agentInitial}-KorX-${String(nextNumber).padStart(6, '0')}`;
+    
+    // Check for duplicates
+    const exists = await Property.findOne({ where: { property_code: code } });
+    if (!exists) {
+      return code;
+    }
+  }
+  
+  // Fallback if unable to generate unique code after max attempts
+  return `${ownerInitial}${agentInitial}-KorX-${Date.now()}`;
+};
+
 const createParent = async (req, res) => {
   try {
     const {
@@ -38,6 +83,7 @@ const createParent = async (req, res) => {
       photos,
       details,
       owner_person_id,
+      owner_name,
       agent_id,
       total_floors,
       planned_units
@@ -87,6 +133,10 @@ const createParent = async (req, res) => {
       detailsObj.planned_units = sanitizedPlannedUnits;
     }
 
+    // Generate unique property code with owner and agent initials
+    const agentName = req.user ? req.user.full_name : null;
+    const propertyCode = await generatePropertyCode(owner_name, agentName);
+
     // Parent containers: record_kind='container', is_parent=1, category=tower|market|sharak, parent_property_id=NULL
     const parent = await Property.create({
       title,
@@ -107,6 +157,8 @@ const createParent = async (req, res) => {
       photos: photos || [],
       details: detailsObj,
       owner_person_id: sanitizedOwnerId,
+      owner_name: owner_name || null,
+      property_code: propertyCode,
       agent_id: sanitizedAgentId,
       total_floors: sanitizedTotalFloors,
       total_units: sanitizedPlannedUnits, // Keep for compatibility if needed, but primary is details
@@ -289,7 +341,8 @@ const createChild = async (req, res) => {
       is_available_for_rent,
       details,
       facilities,
-      amenities
+      amenities,
+      owner_name
     } = req.body;
     
     // Sanitize integer fields
@@ -345,6 +398,10 @@ const createChild = async (req, res) => {
     const activeBedrooms = (isTowerOrMarket && typeLower !== 'apartment') ? null : sanitizedBedrooms;
     const activeBathrooms = (isTowerOrMarket && typeLower !== 'apartment') ? null : sanitizedBathrooms;
 
+    // Generate unique property code for child unit with owner and agent initials
+    const agentName = req.user ? req.user.full_name : null;
+    const propertyCode = await generatePropertyCode(owner_name, agentName);
+
     // Child units: record_kind='listing', is_parent=0, category inherited from parent, parent_property_id=parent.id
     // According to requirements: Child units inherit category from parent container
     const childData = {
@@ -368,6 +425,8 @@ const createChild = async (req, res) => {
       is_available_for_sale: !!is_available_for_sale,
       is_available_for_rent: !!is_available_for_rent,
       details: details || {},
+      owner_name: owner_name || null,
+      property_code: propertyCode,
       created_by_user_id: req.user.user_id,
       status: 'active',
       // Inherit location from parent container

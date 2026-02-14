@@ -96,6 +96,7 @@ const PropertyCreateScreen = observer(() => {
               amenities: parsedAmenities,
               agent_id: String(property.agent_id || ''),
               owner_person_id: property.owner_person_id || '',
+              owner_name: property.owner_name || '',
               total_floors: property.total_floors || property.details?.total_floors || '',
               planned_units: property.total_units || property.details?.planned_units || '',
               purpose: null,
@@ -113,6 +114,8 @@ const PropertyCreateScreen = observer(() => {
 
             setFormInitialValues({
               agent_id: String(property.agent_id || ''),
+              owner_person_id: property.owner_person_id || '',
+              owner_name: property.owner_name || '',
               property_type: property.property_type || 'house',
               purpose: property.purpose || 'sale',
               title: property.title || '',

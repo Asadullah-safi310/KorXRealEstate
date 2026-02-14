@@ -353,6 +353,7 @@ const UserDashboard = observer(() => {
                 title="Towers" 
                 data={[...(containers.towers || []), ...(containers.apartments || [])]} 
                 category="tower"
+                cardSizeScale={1.1}
               />
             )}
 

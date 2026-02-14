@@ -52,6 +52,8 @@ export default observer(function TabLayout() {
           paddingBottom: Math.max(10, insets.bottom),
           paddingTop: 5,
           backgroundColor: themeColors.card,
+          position: 'relative',
+          opacity: 1,
           elevation: 20,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -2 },

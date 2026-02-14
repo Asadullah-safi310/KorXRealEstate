@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -11,45 +11,45 @@ import ScreenLayout from '../../../components/ScreenLayout';
 
 const MyPropertiesScreen = observer(() => {
   const router = useRouter();
-  const [myListedProperties, setMyListedProperties] = useState<any[]>([]);
-  const [assignedProperties, setAssignedProperties] = useState<any[]>([]);
+  const [userProperties, setUserProperties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'listed' | 'assigned'>('listed');
-  const [availabilityFilter, setAvailabilityFilter] = useState<'all' | 'public' | 'private'>('all');
+  const [availabilityFilter, setAvailabilityFilter] = useState<'public' | 'private'>('public');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const themeColors = useThemeColor();
-  const isAgent = authStore.isAgent;
 
   const fetchMyProperties = useCallback(async () => {
-    if (!authStore.user) return;
+    if (!authStore.user?.user_id) return;
     
     setLoading(true);
     try {
-      const listedResponse = await propertyService.getUserProperties({
-        created_by_user_id: authStore.user.user_id,
-      });
-      setMyListedProperties(listedResponse.data || []);
+      const userId = authStore.user.user_id;
+      const requests = [
+        propertyService.getUserProperties({ created_by_user_id: userId }),
+      ];
 
-      if (isAgent) {
-        const assignedResponse = await propertyService.getUserProperties({
-          agent_id: authStore.user.user_id,
-          status: 'available',
-          availability: 'both',
-        });
-        
-        const filteredAssigned = (assignedResponse.data || []).filter(
-          (p: any) => p.created_by_user_id !== authStore.user?.user_id
-        );
-        setAssignedProperties(filteredAssigned);
+      if (authStore.isAgent) {
+        requests.push(propertyService.getUserProperties({ agent_id: userId }));
       }
+
+      const responses = await Promise.all(requests);
+      const createdByUser = responses[0]?.data || [];
+      const assignedToAgent = responses[1]?.data || [];
+      const merged = [...createdByUser, ...assignedToAgent];
+
+      const deduped = Array.from(
+        new Map(merged.map((p: any) => [String(p.property_id), p])).values()
+      );
+
+      setUserProperties(deduped);
     } catch (error) {
       console.error('Failed to fetch properties', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [isAgent]);
+  }, []);
 
   useEffect(() => {
     fetchMyProperties();
@@ -60,18 +60,32 @@ const MyPropertiesScreen = observer(() => {
     fetchMyProperties();
   };
 
-  const filteredData = () => {
-    let data = activeTab === 'listed' ? myListedProperties : assignedProperties;
-
-    if (!isAgent || activeTab === 'listed') {
-      if (availabilityFilter === 'public') {
-        data = data.filter(p => p.is_available_for_sale || p.is_available_for_rent);
-      } else if (availabilityFilter === 'private') {
-        data = data.filter(p => !p.is_available_for_sale && !p.is_available_for_rent);
-      }
+  const filteredProperties = useMemo(() => {
+    let data = userProperties;
+    if (availabilityFilter === 'public') {
+      data = data.filter((p: any) => p.is_available_for_sale || p.is_available_for_rent);
+    } else if (availabilityFilter === 'private') {
+      data = data.filter((p: any) => !p.is_available_for_sale && !p.is_available_for_rent);
     }
+    
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      data = data.filter((p: any) => {
+        const ownerName = (p.owner_name || '').toLowerCase();
+        const propertyCode = (p.property_code || '').toLowerCase();
+        const title = (p.title || '').toLowerCase();
+        
+        return ownerName.includes(query) || 
+               propertyCode.includes(query) || 
+               title.includes(query);
+      });
+    }
+    
     return data;
-  };
+  }, [userProperties, availabilityFilter, searchQuery]);
+
+  const countLabel = `${filteredProperties.length} ${filteredProperties.length === 1 ? 'property' : 'properties'}`;
 
   return (
     <ScreenLayout backgroundColor={themeColors.background} scrollable={false}>
@@ -87,46 +101,44 @@ const MyPropertiesScreen = observer(() => {
       </View>
 
       <View style={styles.topContainer}>
-        {isAgent && (
-          <View style={[styles.mainTabs, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
-            <TouchableOpacity 
-              style={[styles.mainTab, activeTab === 'listed' && { backgroundColor: themeColors.primary }]} 
-              onPress={() => setActiveTab('listed')}
-            >
-              <Text style={[styles.mainTabText, { color: activeTab === 'listed' ? '#fff' : themeColors.subtext }]}>My Listed</Text>
+        <View style={[styles.searchContainer, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+          <Ionicons name="search-outline" size={20} color={themeColors.subtext} style={{ marginRight: 8 }} />
+          <TextInput
+            style={[styles.searchInput, { color: themeColors.text }]}
+            placeholder="Search by owner, code, or title..."
+            placeholderTextColor={themeColors.subtext}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={20} color={themeColors.subtext} />
             </TouchableOpacity>
+          )}
+        </View>
+        
+        <View style={styles.subFilterWrapper}>
+          {(['public', 'private'] as const).map((filter) => (
             <TouchableOpacity 
-              style={[styles.mainTab, activeTab === 'assigned' && { backgroundColor: themeColors.primary }]} 
-              onPress={() => setActiveTab('assigned')}
+              key={filter}
+              onPress={() => setAvailabilityFilter(filter)}
+              style={[
+                styles.subFilterChip, 
+                { backgroundColor: themeColors.card, borderColor: themeColors.border },
+                availabilityFilter === filter && { backgroundColor: themeColors.primary + '15', borderColor: themeColors.primary }
+              ]}
             >
-              <Text style={[styles.mainTabText, { color: activeTab === 'assigned' ? '#fff' : themeColors.subtext }]}>Assigned</Text>
+              <Text style={[
+                styles.subFilterText, 
+                { color: themeColors.subtext },
+                availabilityFilter === filter && { color: themeColors.primary, fontWeight: '800' }
+              ]}>
+                {filter.charAt(0).toUpperCase() + filter.slice(1)}
+              </Text>
             </TouchableOpacity>
-          </View>
-        )}
-
-        {(!isAgent || activeTab === 'listed') && (
-          <View style={styles.subFilterWrapper}>
-            {(['all', 'public', 'private'] as const).map((filter) => (
-              <TouchableOpacity 
-                key={filter}
-                onPress={() => setAvailabilityFilter(filter)}
-                style={[
-                    styles.subFilterChip, 
-                    { backgroundColor: themeColors.card, borderColor: themeColors.border },
-                    availabilityFilter === filter && { backgroundColor: themeColors.primary + '15', borderColor: themeColors.primary }
-                ]}
-              >
-                <Text style={[
-                    styles.subFilterText, 
-                    { color: themeColors.subtext },
-                    availabilityFilter === filter && { color: themeColors.primary, fontWeight: '800' }
-                ]}>
-                  {filter.charAt(0).toUpperCase() + filter.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
+          ))}
+        </View>
+        <Text style={[styles.countText, { color: themeColors.subtext }]}>{countLabel}</Text>
       </View>
 
       {loading && !refreshing ? (
@@ -135,14 +147,68 @@ const MyPropertiesScreen = observer(() => {
         </View>
       ) : (
         <FlatList
-          data={filteredData()}
+          data={filteredProperties}
           keyExtractor={(item) => item.property_id.toString()}
           renderItem={({ item, index }) => (
-            <PropertyCard 
-              property={item} 
-              index={index}
-              onPress={() => router.push(`/property/${item.property_id}`)} 
-            />
+            <View style={styles.cardItem}>
+              {availabilityFilter === 'private' ? (
+                <View style={[styles.privatePropertyItem, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+                  <View style={styles.privatePropertyInfo}>
+                    <View style={styles.privatePropertyHeader}>
+                      <MaterialCommunityIcons name="home-lock-outline" size={24} color={themeColors.primary} />
+                      <View style={styles.privatePropertyTitleContainer}>
+                        <Text style={[styles.privatePropertyTitle, { color: themeColors.text }]} numberOfLines={1}>
+                          {item.title}
+                        </Text>
+                        {item.property_code && (
+                          <Text style={[styles.privatePropertyCode, { color: themeColors.subtext }]}>
+                            {item.property_code}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                    {item.owner_name && (
+                      <View style={styles.privatePropertyRow}>
+                        <Ionicons name="person-outline" size={16} color={themeColors.subtext} />
+                        <Text style={[styles.privatePropertyLabel, { color: themeColors.subtext }]}>Owner:</Text>
+                        <Text style={[styles.privatePropertyValue, { color: themeColors.text }]} numberOfLines={1}>
+                          {item.owner_name}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={styles.privatePropertyRow}>
+                      <Ionicons name="location-outline" size={16} color={themeColors.subtext} />
+                      <Text style={[styles.privatePropertyLabel, { color: themeColors.subtext }]}>Location:</Text>
+                      <Text style={[styles.privatePropertyValue, { color: themeColors.text }]} numberOfLines={1}>
+                        {item.address || item.city || 'N/A'}
+                      </Text>
+                    </View>
+                    <View style={styles.privatePropertyRow}>
+                      <Ionicons name="pricetag-outline" size={16} color={themeColors.subtext} />
+                      <Text style={[styles.privatePropertyLabel, { color: themeColors.subtext }]}>Type:</Text>
+                      <Text style={[styles.privatePropertyValue, { color: themeColors.text }]}>
+                        {item.property_type || 'N/A'}
+                      </Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity 
+                    style={styles.viewButton}
+                    onPress={() => router.push(`/property/${item.property_id}`)}
+                    activeOpacity={0.6}
+                  >
+                    <Text style={[styles.viewButtonText, { color: themeColors.primary }]}>View</Text>
+                    <Ionicons name="arrow-forward" size={14} color={themeColors.primary} />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <PropertyCard 
+                  property={item} 
+                  index={index}
+                  variant="compact"
+                  onPress={() => router.push(`/property/${item.property_id}`)} 
+                />
+              )}
+            </View>
           )}
           contentContainerStyle={styles.listContent}
           refreshControl={
@@ -156,7 +222,9 @@ const MyPropertiesScreen = observer(() => {
               </View>
               <Text style={[styles.emptyTitle, { color: themeColors.text }]}>No properties found</Text>
               <Text style={[styles.emptySubtitle, { color: themeColors.subtext }]}>
-                {activeTab === 'listed' ? "You haven't listed any properties yet." : "No properties have been assigned to you."}
+                {availabilityFilter === 'private'
+                  ? 'No private properties found for this account.'
+                  : 'No public properties found for this account.'}
               </Text>
             </View>
           }
@@ -189,43 +257,47 @@ const styles = StyleSheet.create({
   },
   topContainer: {
     paddingHorizontal: 20,
-    gap: 16,
-    marginBottom: 16,
+    gap: 10,
+    marginBottom: 10,
   },
-  mainTabs: {
+  searchContainer: {
     flexDirection: 'row',
-    padding: 6,
-    borderRadius: 22,
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 14,
     borderWidth: 1.5,
   },
-  mainTab: {
+  searchInput: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 16,
-    alignItems: 'center',
-  },
-  mainTabText: {
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '600',
   },
   subFilterWrapper: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
   },
   subFilterChip: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 14,
     borderWidth: 1.5,
   },
   subFilterText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '700',
   },
+  countText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
   listContent: {
-    padding: 20,
+    padding: 16,
     paddingTop: 10,
-    gap: 16,
+    gap: 10,
+  },
+  cardItem: {
+    marginBottom: 6,
   },
   centered: {
     flex: 1,
@@ -259,6 +331,62 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontWeight: '500',
     opacity: 0.7,
+  },
+  privatePropertyItem: {
+    borderRadius: 12,
+    borderWidth: 1.5,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  privatePropertyInfo: {
+    flex: 1,
+    gap: 6,
+  },
+  privatePropertyHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 2,
+  },
+  privatePropertyTitleContainer: {
+    flex: 1,
+  },
+  privatePropertyTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    marginBottom: 3,
+  },
+  privatePropertyCode: {
+    fontSize: 9,
+    fontWeight: '600',
+    opacity: 0.6,
+  },
+  privatePropertyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  privatePropertyLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  privatePropertyValue: {
+    fontSize: 10,
+    fontWeight: '700',
+    flex: 1,
+  },
+  viewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  viewButtonText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: -0.2,
   },
 });
 

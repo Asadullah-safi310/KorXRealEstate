@@ -71,6 +71,7 @@ const StepReview = ({ onEditStep }: StepReviewProps) => {
           </>
         )}
         <InfoRow label="Agent" value={agent?.full_name || 'Direct Listing'} icon="account-tie-outline" />
+        {values.owner_name && <InfoRow label="Owner Name" value={values.owner_name} icon="account-outline" />}
       </ReviewSection>
 
       <ReviewSection title="Property Details" stepIndex={1}>

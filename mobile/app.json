@@ -8,6 +8,11 @@
     "scheme": "korx",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "androidNavigationBar": {
+      "backgroundColor": "#FFFFFF",
+      "barStyle": "dark-content",
+      "visible": "visible"
+    },
     "ios": {
       "supportsTablet": true,
       "config": {

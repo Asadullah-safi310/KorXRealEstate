@@ -1,13 +1,10 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { useColorScheme } from "react-native";
-import { Observer } from "mobx-react-lite";
 import * as Font from 'expo-font';
 import { useEffect, useState } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
 
-import themeStore from "../src/stores/ThemeStore";
 import { fontAssets, ThemeProvider, useTheme } from "../src/theme";
 import { LanguageProvider } from "../src/contexts/LanguageContext";
 
@@ -16,6 +13,7 @@ SplashScreen.preventAutoHideAsync();
 
 const AppContent = () => {
   const { theme } = useTheme();
+
   return (
     <>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} translucent backgroundColor="transparent" />

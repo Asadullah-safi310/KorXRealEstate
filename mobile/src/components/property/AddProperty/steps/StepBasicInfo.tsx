@@ -16,6 +16,20 @@ import authStore from '../../../../stores/AuthStore';
 import Avatar from '../../../../components/Avatar';
 import { AnimatedFormInput } from '../../../AnimatedFormInput';
 
+const SUGGESTED_TITLES = [
+  'Modern Apartment',
+  'Family Home',
+  'Luxury Villa',
+  'City Studio',
+  'Cozy Flat',
+  'Prime Location Home',
+  'Modern 3-Bedroom Apartment in Prime Location',
+  'Spacious Family House with Private Garden',
+  'Luxury Villa with City View',
+  'Affordable Studio Near Main Road',
+  'Newly Renovated Home Ready to Move In',
+];
+
 const StepBasicInfo = observer(() => {
   const { values, setFieldValue, errors, touched } = useFormikContext<any>();
   const theme = useThemeColor();
@@ -63,7 +77,39 @@ const StepBasicInfo = observer(() => {
         error={errors.title as string}
         touched={touched.title}
         icon={<MaterialCommunityIcons name="format-title" size={20} color={theme.subtext} />}
+        rightAdornment={values.title ? (
+          <TouchableOpacity
+            onPress={() => setFieldValue('title', '')}
+            style={[styles.clearTitleBtn, { backgroundColor: theme.border + '40' }]}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="close" size={14} color={theme.subtext} />
+          </TouchableOpacity>
+        ) : null}
       />
+      <View style={styles.suggestionsWrapper}>
+        <AppText variant="tiny" style={{ color: theme.subtext, marginBottom: 6 }}>
+          Suggested titles:
+        </AppText>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.suggestionsList}
+        >
+          {SUGGESTED_TITLES.map((suggestion) => (
+            <TouchableOpacity
+              key={suggestion}
+              onPress={() => setFieldValue('title', suggestion)}
+              style={[styles.suggestionItem, { borderColor: theme.border, backgroundColor: theme.card }]}
+              activeOpacity={0.7}
+            >
+              <AppText variant="tiny" style={{ color: theme.primary }} numberOfLines={1}>
+                {suggestion}
+              </AppText>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
 
       <AnimatedFormInput
         label="Property Description"
@@ -77,6 +123,25 @@ const StepBasicInfo = observer(() => {
         textAlignVertical="top"
         style={styles.textArea}
         containerStyle={styles.textAreaContainer}
+      />
+
+      <AnimatedFormInput
+        label="Owner Name (Optional)"
+        placeholder="Enter the name of the property owner"
+        value={values.owner_name}
+        onChangeText={(t) => setFieldValue('owner_name', t)}
+        error={errors.owner_name as string}
+        touched={touched.owner_name}
+        icon={<MaterialCommunityIcons name="account" size={20} color={theme.subtext} />}
+        rightAdornment={values.owner_name ? (
+          <TouchableOpacity
+            onPress={() => setFieldValue('owner_name', '')}
+            style={[styles.clearTitleBtn, { backgroundColor: theme.border + '40' }]}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="close" size={14} color={theme.subtext} />
+          </TouchableOpacity>
+        ) : null}
       />
 
       {/* Owner Assignment (Admin Only) */}
@@ -271,6 +336,28 @@ const styles = StyleSheet.create({
   errorText: { 
     marginTop: 4, 
     marginLeft: 4,
+  },
+  suggestionsWrapper: {
+    marginTop: -8,
+    marginBottom: 16,
+  },
+  suggestionsList: {
+    gap: 8,
+    paddingRight: 20,
+  },
+  suggestionItem: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    maxWidth: 250,
+  },
+  clearTitleBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modernAssignmentSection: {
     marginTop: 24,

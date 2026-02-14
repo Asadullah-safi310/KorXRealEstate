@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TextInput, 
-  TouchableOpacity, 
-  FlatList, 
-  Platform, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  Platform,
   ActivityIndicator,
   KeyboardAvoidingView,
   Dimensions,
-  Pressable
+  Pressable,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -29,22 +29,20 @@ const SearchScreen = () => {
   const router = useRouter();
   const { colors: theme, theme: themeMode } = useTheme();
   const insets = useSafeAreaInsets();
-  
-  // State
+
   const [activeType, setActiveType] = useState('Buy');
   const [searchQuery, setSearchQuery] = useState('');
   const [level, setLevel] = useState<SelectionLevel>('city');
   const [loading, setLoading] = useState(false);
-  
+
   const [cities, setCities] = useState<any[]>([]);
   const [districts, setDistricts] = useState<any[]>([]);
   const [areas, setAreas] = useState<any[]>([]);
-  
+
   const [selectedCity, setSelectedCity] = useState<any>(null);
   const [selectedDistrict, setSelectedDistrict] = useState<any>(null);
   const [selectedArea, setSelectedArea] = useState<any>(null);
 
-  // Initial fetch
   useEffect(() => {
     fetchCities();
   }, []);
@@ -111,15 +109,15 @@ const SearchScreen = () => {
 
     router.push({
       pathname: '/(tabs)/properties',
-      params: { 
-        province_id: selectedCity.id || selectedCity._id, 
-        district_id: selectedDistrict?.id || selectedDistrict?._id, 
+      params: {
+        province_id: selectedCity.id || selectedCity._id,
+        district_id: selectedDistrict?.id || selectedDistrict?._id,
         area_id: selectedArea?.id || selectedArea?._id,
         province_name: selectedCity.name,
         district_name: selectedDistrict?.name || '',
         area_name: selectedArea?.name || '',
-        type: activeType 
-      }
+        type: activeType,
+      },
     });
   };
 
@@ -149,7 +147,7 @@ const SearchScreen = () => {
   };
 
   const searchPlaceholder = useMemo(() => {
-    if (level === 'city') return "Search provinces...";
+    if (level === 'city') return 'Search provinces...';
     if (level === 'district') return `Search in ${selectedCity?.name}...`;
     return `Search in ${selectedDistrict?.name}...`;
   }, [level, selectedCity, selectedDistrict]);
@@ -157,60 +155,68 @@ const SearchScreen = () => {
   const filteredData = useMemo(() => {
     const currentList = level === 'city' ? cities : level === 'district' ? districts : areas;
     if (!searchQuery) return currentList;
-    return currentList.filter(item => 
+    return currentList.filter((item) =>
       item.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [level, cities, districts, areas, searchQuery]);
 
+  const levelTitle = useMemo(() => {
+    if (level === 'city') return 'Select Province';
+    if (level === 'district') return 'Select District';
+    return 'Select Area';
+  }, [level]);
+
+  const levelSubtitle = useMemo(() => {
+    if (level === 'city') return 'Start by choosing a province';
+    if (level === 'district') return `Districts in ${selectedCity?.name || 'selected province'}`;
+    return `Areas in ${selectedDistrict?.name || 'selected district'}`;
+  }, [level, selectedCity, selectedDistrict]);
+
   const renderItem = ({ item, index }: { item: any; index: number }) => {
     const itemId = item.id || item._id;
-    const isSelected = 
+    const isSelected =
       (level === 'city' && (selectedCity?.id === itemId || selectedCity?._id === itemId)) ||
       (level === 'district' && (selectedDistrict?.id === itemId || selectedDistrict?._id === itemId)) ||
       (level === 'area' && (selectedArea?.id === itemId || selectedArea?._id === itemId));
 
     return (
-      <Animated.View 
-        entering={FadeInDown.delay(index * 30).duration(400)}
-        layout={Layout.springify()}
-      >
-        <TouchableOpacity 
+      <Animated.View entering={FadeInDown.delay(index * 16).duration(260)} layout={Layout.springify()} style={styles.chipItemWrap}>
+        <TouchableOpacity
           style={[
-            styles.listItem, 
-            { 
-              backgroundColor: theme.card, 
+            styles.chipItem,
+            {
+              backgroundColor: theme.card,
               borderColor: isSelected ? theme.primary : theme.border,
-              borderWidth: isSelected ? 2 : 1.5 
-            }
+            },
           ]}
           onPress={() => {
             if (level === 'city') handleCitySelect(item);
             else if (level === 'district') handleDistrictSelect(item);
             else handleAreaSelect(item);
           }}
-          activeOpacity={0.7}
+          activeOpacity={0.8}
         >
-          <View style={[styles.itemIconContainer, { backgroundColor: isSelected ? theme.primary + '10' : theme.background }]}>
-            <MaterialCommunityIcons 
-              name={level === 'city' ? "office-building" : level === 'district' ? "map-marker-radius" : "map-marker"} 
-              size={22} 
-              color={isSelected ? theme.primary : theme.subtext} 
+          <View
+            style={[
+              styles.chipIconWrap,
+              { backgroundColor: isSelected ? theme.primary + '12' : theme.background },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name={level === 'city' ? 'office-building' : level === 'district' ? 'map-marker-radius' : 'map-marker'}
+              size={16}
+              color={isSelected ? theme.primary : theme.subtext}
             />
           </View>
-          <View style={styles.listItemContent}>
-            <Text style={[styles.listItemText, { color: theme.text, fontWeight: isSelected ? '800' : '600' }]}>
-              {item.name}
-            </Text>
-            <Text style={[styles.listItemSubtext, { color: theme.subtext }]}>
-              {level === 'city' ? 'Province' : level === 'district' ? `District in ${selectedCity?.name}` : `Area in ${selectedDistrict?.name}`}
-            </Text>
-          </View>
+
+          <Text style={[styles.chipItemText, { color: theme.text }]} numberOfLines={1}>
+            {item.name}
+          </Text>
+
           {isSelected ? (
-            <View style={[styles.selectedBadge, { backgroundColor: theme.primary }]}>
-               <Ionicons name="checkmark" size={14} color={theme.white} />
-            </View>
+            <Ionicons name="checkmark-circle" size={18} color={theme.primary} />
           ) : (
-            <Ionicons name="chevron-forward" size={18} color={theme.border} />
+            <View style={[styles.chipInactiveDot, { backgroundColor: theme.border }]} />
           )}
         </TouchableOpacity>
       </Animated.View>
@@ -218,25 +224,34 @@ const SearchScreen = () => {
   };
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={{ flex: 1, backgroundColor: theme.background }}
     >
       <View style={{ flex: 1 }}>
         <ExpoStatusBar style={themeMode === 'dark' ? 'light' : 'dark'} />
-        
-        {/* Modern Premium Header */}
+
         <View style={[styles.headerWrapper, { backgroundColor: theme.background }]}>
           <SafeAreaView edges={['top']}>
             <View style={styles.headerTop}>
               <TouchableOpacity onPress={handleBack} style={[styles.headerBtn, { borderColor: theme.border }]}>
                 <Ionicons name="arrow-back" size={22} color={theme.text} />
               </TouchableOpacity>
-              
+
+              <View style={styles.headerTitleWrap}>
+                <Text style={[styles.headerTitle, { color: theme.text }]}>Search by Location</Text>
+              </View>
+
+              <TouchableOpacity onPress={handleClear} style={[styles.headerBtn, { borderColor: theme.border }]}>
+                <Ionicons name="refresh" size={20} color={theme.text} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.tabSection}>
               <View style={[styles.tabContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                {['Buy', 'Rent/PG', 'Commercial'].map((type) => (
-                  <Pressable 
-                    key={type} 
+                {['Buy', 'Rent/PG'].map((type) => (
+                  <Pressable
+                    key={type}
                     onPress={() => setActiveType(type)}
                     style={[styles.tab, activeType === type && { backgroundColor: theme.primary }]}
                   >
@@ -246,13 +261,8 @@ const SearchScreen = () => {
                   </Pressable>
                 ))}
               </View>
-
-              <TouchableOpacity onPress={handleClear} style={[styles.headerBtn, { borderColor: theme.border }]}>
-                <Ionicons name="refresh" size={20} color={theme.text} />
-              </TouchableOpacity>
             </View>
 
-            {/* Premium Search Bar */}
             <View style={styles.searchContainer}>
               <View style={[styles.searchBar, { backgroundColor: theme.card, borderColor: theme.border }]}>
                 <Ionicons name="search" size={20} color={theme.primary} style={styles.searchIcon} />
@@ -260,11 +270,11 @@ const SearchScreen = () => {
                   {(selectedCity || selectedDistrict || selectedArea) && (
                     <Text style={[styles.breadcrumb, { color: theme.primary }]} numberOfLines={1}>
                       {selectedCity?.name}
-                      {selectedDistrict ? ` • ${selectedDistrict.name}` : ''}
-                      {selectedArea ? ` • ${selectedArea.name}` : ''}
+                      {selectedDistrict ? ` > ${selectedDistrict.name}` : ''}
+                      {selectedArea ? ` > ${selectedArea.name}` : ''}
                     </Text>
                   )}
-                  <TextInput 
+                  <TextInput
                     style={[styles.input, { color: theme.text }]}
                     placeholder={searchPlaceholder}
                     placeholderTextColor={theme.subtext + '80'}
@@ -283,49 +293,55 @@ const SearchScreen = () => {
           </SafeAreaView>
         </View>
 
-        {/* List Content */}
         <View style={styles.listWrapper}>
           <View style={styles.listHeader}>
-            <Text style={[styles.listTitle, { color: theme.text }]}>
-              {level === 'city' ? 'Select Province' : level === 'district' ? 'Select District' : 'Refine Location'}
-            </Text>
-            {loading && <ActivityIndicator size="small" color={theme.primary} />}
+            <View>
+              <Text style={[styles.listTitle, { color: theme.text }]}>{levelTitle}</Text>
+              <Text style={[styles.listSubtitle, { color: theme.subtext }]}>{levelSubtitle}</Text>
+            </View>
+            {loading ? (
+              <ActivityIndicator size="small" color={theme.primary} />
+            ) : (
+              <Text style={[styles.resultCountText, { color: theme.subtext }]}>
+                {filteredData.length} results
+              </Text>
+            )}
           </View>
 
           <FlatList
             data={filteredData}
             renderItem={renderItem}
+            key="locations-chip-grid"
             keyExtractor={(item) => (item.id || item._id).toString()}
+            numColumns={2}
+            columnWrapperStyle={styles.chipGridRow}
             contentContainerStyle={[styles.listScroll, { paddingBottom: 120 + insets.bottom }]}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
               !loading ? (
                 <View style={styles.emptyContainer}>
                   <View style={[styles.emptyIconBox, { backgroundColor: theme.card }]}>
-                     <MaterialCommunityIcons name="map-search-outline" size={60} color={theme.border} />
+                    <MaterialCommunityIcons name="map-search-outline" size={60} color={theme.border} />
                   </View>
                   <Text style={[styles.emptyTitle, { color: theme.text }]}>No locations found</Text>
-                  <Text style={[styles.emptySubtitle, { color: theme.subtext }]}>We couldn&apos;t find any results matching your search.</Text>
+                  <Text style={[styles.emptySubtitle, { color: theme.subtext }]}>Try a different keyword or clear the search.</Text>
                 </View>
               ) : null
             }
           />
         </View>
 
-        {/* Floating Action Button */}
         {selectedCity && (
           <BlurView intensity={Platform.OS === 'ios' ? 80 : 100} style={[styles.fabContainer, { paddingBottom: insets.bottom + 20 }]}>
-            <TouchableOpacity 
-              style={[styles.fab, { backgroundColor: theme.primary }]} 
+            <TouchableOpacity
+              style={[styles.fab, { backgroundColor: theme.primary }]}
               onPress={handleSearch}
               activeOpacity={0.9}
             >
               <View style={styles.fabIcon}>
                 <Ionicons name="location" size={20} color={theme.white} />
               </View>
-              <Text style={styles.fabText}>
-                Explore {selectedArea?.name || selectedDistrict?.name || selectedCity.name}
-              </Text>
+              <Text style={styles.fabText}>Explore {selectedArea?.name || selectedDistrict?.name || selectedCity.name}</Text>
               <Ionicons name="arrow-forward" size={18} color={theme.white + 'B3'} />
             </TouchableOpacity>
           </BlurView>
@@ -337,62 +353,71 @@ const SearchScreen = () => {
 
 const styles = StyleSheet.create({
   headerWrapper: {
-    paddingBottom: 20,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    zIndex: 10,
+    paddingBottom: 12,
   },
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    marginTop: Platform.OS === 'ios' ? 0 : 10,
+    marginTop: Platform.OS === 'ios' ? 2 : 8,
     gap: 12,
   },
   headerBtn: {
     width: 44,
     height: 44,
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1.5,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  tabContainer: {
+  headerTitleWrap: {
     flex: 1,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  tabSection: {
+    paddingHorizontal: 20,
+    marginTop: 12,
+  },
+  tabContainer: {
     flexDirection: 'row',
     borderRadius: 16,
     borderWidth: 1.5,
-    padding: 3,
+    padding: 4,
   },
   tab: {
     flex: 1,
-    paddingVertical: 8,
-    borderRadius: 13,
+    paddingVertical: 10,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
   tabText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
   },
   searchContainer: {
     paddingHorizontal: 20,
-    marginTop: 20,
+    marginTop: 12,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 20,
+    borderRadius: 14,
     borderWidth: 1.5,
-    height: 60,
-    paddingHorizontal: 16,
+    minHeight: 56,
+    paddingHorizontal: 14,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
       },
       android: {
         elevation: 2,
@@ -400,7 +425,7 @@ const styles = StyleSheet.create({
     }),
   },
   searchIcon: {
-    marginRight: 12,
+    marginRight: 10,
   },
   inputStack: {
     flex: 1,
@@ -409,9 +434,7 @@ const styles = StyleSheet.create({
   breadcrumb: {
     fontSize: 11,
     fontWeight: '700',
-    marginBottom: -2,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    marginBottom: 0,
   },
   input: {
     fontSize: 16,
@@ -419,58 +442,69 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   clearIcon: {
-    padding: 4,
+    padding: 6,
   },
   listWrapper: {
     flex: 1,
+    paddingTop: 8,
   },
   listHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
   },
   listTitle: {
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '800',
-    letterSpacing: -0.5,
+    letterSpacing: -0.3,
+  },
+  listSubtitle: {
+    fontSize: 13,
+    marginTop: 1,
+  },
+  resultCountText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   listScroll: {
-    paddingHorizontal: 24,
-    gap: 12,
+    paddingHorizontal: 20,
+    gap: 10,
   },
-  listItem: {
+  chipGridRow: {
+    gap: 10,
+  },
+  chipItemWrap: {
+    flex: 1,
+    marginBottom: 10,
+  },
+  chipItem: {
+    minHeight: 52,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 20,
-    gap: 12,
+    justifyContent: 'space-between',
+    gap: 8,
   },
-  itemIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+  chipIconWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  listItemContent: {
+  chipItemText: {
     flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
   },
-  listItemText: {
-    fontSize: 16,
-    marginBottom: 2,
-  },
-  listItemSubtext: {
-    fontSize: 13,
-    opacity: 0.7,
-  },
-  selectedBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+  chipInactiveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -481,10 +515,10 @@ const styles = StyleSheet.create({
   emptyIconBox: {
     width: 100,
     height: 100,
-    borderRadius: 30,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 18,
   },
   emptyTitle: {
     fontSize: 18,
@@ -499,7 +533,7 @@ const styles = StyleSheet.create({
   fabContainer: {
     position: 'absolute',
     bottom: 0,
-    width: width,
+    width,
     paddingHorizontal: 20,
     paddingTop: 20,
   },

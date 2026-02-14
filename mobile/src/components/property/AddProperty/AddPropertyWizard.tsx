@@ -177,6 +177,7 @@ const WizardInner = observer(({ onFinish, isEditing, propertyId, currentStep, se
         area_id: sanitizeInt(values.area_id),
         agent_id: sanitizeInt(values.agent_id),
         owner_person_id: sanitizeInt(values.owner_person_id),
+        owner_name: values.owner_name || null,
       };
 
       let id = propertyId;
@@ -376,10 +377,16 @@ const WizardInner = observer(({ onFinish, isEditing, propertyId, currentStep, se
 const AddPropertyWizard = observer(({ initial, isEditing, propertyId, onFinish, isStandalone, isAddingChild, isCreatingParent }: any) => {
   const [currentStep, setCurrentStep] = useState(0);
   const values = initial || initialValues;
+  const isInheritedChildFlow =
+    !!isAddingChild ||
+    !!values.parent_property_id ||
+    !!values.parentId ||
+    !!values.apartment_id;
   
   // Filter steps based on context (e.g. skip pricing for containers)
   const steps = ALL_STEPS.filter(step => {
     if (values.is_parent && step.key === 'pricing') return false;
+    if (isInheritedChildFlow && step.key === 'map-location') return false;
     return true;
   });
 

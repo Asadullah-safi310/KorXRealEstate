@@ -13,25 +13,26 @@ import propertyStore from '../../../stores/PropertyStore';
 import filterStore from '../../../stores/FilterStore';
 import authStore from '../../../stores/AuthStore';
 
-const PriceRangeSlider = ({ min, max, onValueChange, themeColors }: any) => {
+const PriceRangeSlider = ({ min, max, currency, onValueChange, onCurrencyChange, themeColors }: any) => {
   const [width, setWidth] = useState(0);
   const [pageX, setPageX] = useState(0);
   const viewRef = useRef<View>(null);
   
-  const minVal = parseFloat(min) || 0;
-  const maxVal = parseFloat(max) || 2000000;
-  const RANGE_MAX = 2000000;
+  const RANGE_MIN = currency === 'USD' ? 113883 : 11388300;
+  const RANGE_MAX = currency === 'USD' ? 500000 : 50000000;
+  const minVal = parseFloat(min) || RANGE_MIN;
+  const maxVal = parseFloat(max) || RANGE_MAX;
   
   const histogramData = [5, 8, 12, 18, 25, 40, 35, 45, 60, 55, 40, 30, 25, 18, 12, 8, 5, 3, 2, 1];
 
   const getPosFromValue = (value: number) => {
     if (width === 0) return 0;
-    return (value / RANGE_MAX) * width;
+    return ((value - RANGE_MIN) / (RANGE_MAX - RANGE_MIN)) * width;
   };
 
   const getValueFromPos = useCallback((pos: number) => {
-    return Math.round((pos / width) * RANGE_MAX);
-  }, [width]);
+    return Math.round(RANGE_MIN + (pos / width) * (RANGE_MAX - RANGE_MIN));
+  }, [width, RANGE_MAX, RANGE_MIN]);
 
   const leftPos = getPosFromValue(minVal);
   const rightPos = getPosFromValue(maxVal);
@@ -41,18 +42,20 @@ const PriceRangeSlider = ({ min, max, onValueChange, themeColors }: any) => {
     onMoveShouldSetPanResponder: () => true,
     onPanResponderMove: (evt, gestureState) => {
       const newPos = Math.max(0, Math.min(gestureState.moveX - pageX, rightPos - 20));
-      onValueChange(getValueFromPos(newPos), maxVal);
+      const newValue = Math.max(RANGE_MIN, getValueFromPos(newPos));
+      onValueChange(newValue, maxVal);
     },
-  }), [pageX, rightPos, maxVal, onValueChange, getValueFromPos]);
+  }), [pageX, rightPos, maxVal, onValueChange, getValueFromPos, RANGE_MIN]);
 
   const panResponderRight = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
     onPanResponderMove: (evt, gestureState) => {
       const newPos = Math.min(width, Math.max(leftPos + 20, gestureState.moveX - pageX));
-      onValueChange(minVal, getValueFromPos(newPos));
+      const newValue = Math.min(RANGE_MAX, getValueFromPos(newPos));
+      onValueChange(minVal, newValue);
     },
-  }), [width, pageX, leftPos, minVal, onValueChange, getValueFromPos]);
+  }), [width, pageX, leftPos, minVal, onValueChange, getValueFromPos, RANGE_MAX]);
 
   const onLayout = () => {
     viewRef.current?.measure((x, y, w, h, px, py) => {
@@ -62,60 +65,91 @@ const PriceRangeSlider = ({ min, max, onValueChange, themeColors }: any) => {
   };
 
   const formatCurrency = (val: number) => {
-    return '$' + val.toLocaleString();
+    if (currency === 'USD') {
+      return '$' + val.toLocaleString();
+    } else {
+      if (val >= 10000000) return `${(val / 10000000).toFixed(1)} Cr AF`;
+      if (val >= 100000) return `${(val / 100000).toFixed(1)} Lac AF`;
+      return val.toLocaleString() + ' AF';
+    }
   };
 
   return (
-    <View 
-      ref={viewRef}
-      style={styles.sliderWrapper} 
-      onLayout={onLayout}
-    >
-      <View style={styles.histogramContainer}>
-        {histogramData.map((h, i) => {
-          const barPos = (i / histogramData.length) * width;
-          const isActive = barPos >= leftPos && barPos <= rightPos;
-          return (
-            <View 
-              key={i} 
-              style={[
-                styles.histogramBar, 
-                { height: h, backgroundColor: isActive ? themeColors.primary + '30' : themeColors.border }
-              ]} 
-            />
-          );
-        })}
-      </View>
-
-      <View style={[styles.sliderTrackBase, { backgroundColor: themeColors.border }]}>
-        <View 
+    <View>
+      <View style={styles.currencyToggle}>
+        <TouchableOpacity
           style={[
-            styles.sliderTrackHighlight, 
-            { 
-              left: leftPos, 
-              width: rightPos - leftPos, 
-              backgroundColor: themeColors.primary 
-            }
-          ]} 
-        />
+            styles.currencyButton,
+            { borderColor: themeColors.border },
+            currency === 'AF' && { backgroundColor: themeColors.primary, borderColor: themeColors.primary }
+          ]}
+          onPress={() => onCurrencyChange('AF')}
+        >
+          <Text style={[styles.currencyText, { color: currency === 'AF' ? '#fff' : themeColors.text }]}>AF</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.currencyButton,
+            { borderColor: themeColors.border },
+            currency === 'USD' && { backgroundColor: themeColors.primary, borderColor: themeColors.primary }
+          ]}
+          onPress={() => onCurrencyChange('USD')}
+        >
+          <Text style={[styles.currencyText, { color: currency === 'USD' ? '#fff' : themeColors.text }]}>$</Text>
+        </TouchableOpacity>
       </View>
-
+      
       <View 
-        style={[styles.sliderThumbHitArea, { left: leftPos - 20 }]} 
-        {...panResponderLeft.panHandlers}
+        ref={viewRef}
+        style={styles.sliderWrapper} 
+        onLayout={onLayout}
       >
-        <View style={[styles.sliderThumb, { borderColor: themeColors.primary, backgroundColor: themeColors.background }]} />
-      </View>
-      <View 
-        style={[styles.sliderThumbHitArea, { left: rightPos - 20 }]} 
-        {...panResponderRight.panHandlers}
-      >
-        <View style={[styles.sliderThumb, { borderColor: themeColors.primary, backgroundColor: themeColors.background }]} />
-      </View>
+        <View style={styles.histogramContainer}>
+          {histogramData.map((h, i) => {
+            const barPos = (i / histogramData.length) * width;
+            const isActive = barPos >= leftPos && barPos <= rightPos;
+            return (
+              <View 
+                key={i} 
+                style={[
+                  styles.histogramBar, 
+                  { height: h, backgroundColor: isActive ? themeColors.primary + '30' : themeColors.border }
+                ]} 
+              />
+            );
+          })}
+        </View>
 
-      <View style={styles.sliderLabels}>
-        <Text style={[styles.priceLabelValue, { color: themeColors.text }]}>{formatCurrency(minVal)}</Text>
-        <Text style={[styles.priceLabelValue, { color: themeColors.text }]}>{formatCurrency(maxVal)}</Text>
+        <View style={[styles.sliderTrackBase, { backgroundColor: themeColors.border }]}>
+          <View 
+            style={[
+              styles.sliderTrackHighlight, 
+              { 
+                left: leftPos, 
+                width: rightPos - leftPos, 
+                backgroundColor: themeColors.primary 
+              }
+            ]} 
+          />
+        </View>
+
+        <View 
+          style={[styles.sliderThumbHitArea, { left: leftPos - 20 }]} 
+          {...panResponderLeft.panHandlers}
+        >
+          <View style={[styles.sliderThumb, { borderColor: themeColors.primary, backgroundColor: themeColors.background }]} />
+        </View>
+        <View 
+          style={[styles.sliderThumbHitArea, { left: rightPos - 20 }]} 
+          {...panResponderRight.panHandlers}
+        >
+          <View style={[styles.sliderThumb, { borderColor: themeColors.primary, backgroundColor: themeColors.background }]} />
+        </View>
+
+        <View style={styles.sliderLabels}>
+          <Text style={[styles.priceLabelValue, { color: themeColors.text }]}>{formatCurrency(minVal)}</Text>
+          <Text style={[styles.priceLabelValue, { color: themeColors.text }]}>{formatCurrency(maxVal)}</Text>
+        </View>
       </View>
     </View>
   );
@@ -237,7 +271,11 @@ const FiltersScreen = observer(() => {
       if (filters.area_id) queryParams.area_id = filters.area_id;
       if (filters.property_type) queryParams.property_type = filters.property_type;
       if (filters.bedrooms) queryParams.bedrooms = filters.bedrooms;
+      if (filters.bathrooms) queryParams.bathrooms = filters.bathrooms;
       if (filters.agent_id) queryParams.agent_id = filters.agent_id;
+      if (filters.amenities && filters.amenities.length > 0) {
+        queryParams.amenities = filters.amenities.join(',');
+      }
       
       if (filters.property_category) {
         queryParams.property_category = filters.property_category;
@@ -261,12 +299,17 @@ const FiltersScreen = observer(() => {
           queryParams.min_sale_price = filters.min_price;
         }
       }
-      if (filters.max_price && filters.max_price !== '2000000') {
+      const maxPriceThreshold = filters.currency === 'USD' ? 500000 : 50000000;
+      if (filters.max_price && filters.max_price !== String(maxPriceThreshold)) {
         if (filters.purpose === 'rent') {
           queryParams.max_rent_price = filters.max_price;
         } else {
           queryParams.max_sale_price = filters.max_price;
         }
+      }
+      
+      if (filters.currency) {
+        queryParams.currency = filters.currency;
       }
 
       queryParams.status = 'active';
@@ -322,27 +365,6 @@ const FiltersScreen = observer(() => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: 180 }}
       >
- 
-
-        <View style={[styles.filterCard, { backgroundColor: themeColors.card }]}>
-          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Search</Text>
-          <View style={[styles.searchInput, { backgroundColor: themeColors.background, borderColor: themeColors.border }]}>
-            <Ionicons name="search-outline" size={20} color={themeColors.subtext} />
-            <TextInput
-              style={[styles.input, { color: themeColors.text }]}
-              placeholder="Search properties by name, description, location..."
-              placeholderTextColor={themeColors.subtext}
-              value={filters.search}
-              onChangeText={(value) => updateFilter('search', value)}
-            />
-            {filters.search && (
-              <TouchableOpacity onPress={() => updateFilter('search', '')}>
-                <Ionicons name="close-circle" size={18} color={themeColors.subtext} />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-
         <View style={[styles.filterCard, { backgroundColor: themeColors.card }]}>
           <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Location</Text>
           
@@ -483,7 +505,7 @@ const FiltersScreen = observer(() => {
           <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Category</Text>
           <View style={styles.chipGrid}>
             {[
-              { label: 'Tower/Apartment', value: 'tower' },
+              { label: 'Tower', value: 'tower' },
               { label: 'Market', value: 'market' },
               { label: 'Sharak', value: 'sharak' },
             ].map((item) => {
@@ -547,41 +569,83 @@ const FiltersScreen = observer(() => {
             Price Range {filters.purpose === 'rent' ? '(Rent)' : filters.purpose === 'sale' ? '(Sale)' : ''}
           </Text>
           <PriceRangeSlider 
-            min={filters.min_price} 
-            max={filters.max_price || 2000000} 
+            min={filters.min_price || (filters.currency === 'USD' ? '113883' : '11388300')} 
+            max={filters.max_price || (filters.currency === 'USD' ? '500000' : '50000000')} 
+            currency={filters.currency}
             themeColors={themeColors}
             onValueChange={(minVal: number, maxVal: number) => {
               filterStore.updateFilters({ min_price: String(minVal), max_price: String(maxVal) });
+            }}
+            onCurrencyChange={(currency: string) => {
+              const newMin = currency === 'USD' ? 113883 : 11388300;
+              const newMax = currency === 'USD' ? 500000 : 50000000;
+              filterStore.updateFilter('currency', currency);
+              filterStore.updateFilters({ 
+                min_price: String(newMin),
+                max_price: String(newMax)
+              });
             }}
           />
         </View>
 
         <View style={[styles.filterCard, { backgroundColor: themeColors.card }]}>
           <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Bedrooms</Text>
-          <View style={styles.chipGrid}>
-            {['1', '2', '3', '4', '5+'].map((num) => {
-              const isActive = filters.bedrooms === num.replace('+', '');
-              return (
-                <TouchableOpacity
-                  key={num}
-                  style={[
-                    styles.filterChip, 
-                    { 
-                      backgroundColor: isActive ? themeColors.primary : themeColors.background,
-                      borderColor: isActive ? themeColors.primary : themeColors.border
-                    }
-                  ]}
-                  onPress={() => updateFilter('bedrooms', isActive ? '' : num.replace('+', ''))}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[
-                    styles.filterChipText, 
-                    { color: isActive ? '#fff' : themeColors.text }
-                  ]}>{num}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.chipGrid}>
+              {Array.from({ length: 20 }, (_, i) => String(i + 1)).concat(['20+']).map((num) => {
+                const isActive = filters.bedrooms === num.replace('+', '');
+                return (
+                  <TouchableOpacity
+                    key={num}
+                    style={[
+                      styles.filterChip, 
+                      { 
+                        backgroundColor: isActive ? themeColors.primary : themeColors.background,
+                        borderColor: isActive ? themeColors.primary : themeColors.border
+                      }
+                    ]}
+                    onPress={() => updateFilter('bedrooms', isActive ? '' : num.replace('+', ''))}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[
+                      styles.filterChipText, 
+                      { color: isActive ? '#fff' : themeColors.text }
+                    ]}>{num}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </ScrollView>
+        </View>
+
+        <View style={[styles.filterCard, { backgroundColor: themeColors.card }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Bathrooms</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.chipGrid}>
+              {Array.from({ length: 20 }, (_, i) => String(i + 1)).concat(['20+']).map((num) => {
+                const isActive = filters.bathrooms === num.replace('+', '');
+                return (
+                  <TouchableOpacity
+                    key={num}
+                    style={[
+                      styles.filterChip, 
+                      { 
+                        backgroundColor: isActive ? themeColors.primary : themeColors.background,
+                        borderColor: isActive ? themeColors.primary : themeColors.border
+                      }
+                    ]}
+                    onPress={() => updateFilter('bathrooms', isActive ? '' : num.replace('+', ''))}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[
+                      styles.filterChipText, 
+                      { color: isActive ? '#fff' : themeColors.text }
+                    ]}>{num}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </ScrollView>
         </View>
 
         {agents.filter((agent: any) => agent.role !== 'admin').length > 0 && (
@@ -614,6 +678,45 @@ const FiltersScreen = observer(() => {
           </View>
         )}
 
+        <View style={[styles.filterCard, { backgroundColor: themeColors.card }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Amenities</Text>
+          <View style={styles.chipGrid}>
+            {[
+              'Parking', 'Security Guard', 'Central Heating System', 'Cupboards',
+              'Sunny', 'Basement', 'AC', 'Lift', 'Furnished', 'Semi-Furnished',
+              'Solar Facility', 'Generator Facility'
+            ].map((amenity) => {
+              const isActive = filters.amenities.includes(amenity);
+              return (
+                <TouchableOpacity
+                  key={amenity}
+                  style={[
+                    styles.filterChip,
+                    {
+                      backgroundColor: isActive ? themeColors.primary : themeColors.background,
+                      borderColor: isActive ? themeColors.primary : themeColors.border
+                    }
+                  ]}
+                  onPress={() => {
+                    const currentAmenities = filters.amenities || [];
+                    if (isActive) {
+                      filterStore.updateFilter('amenities', currentAmenities.filter((a: string) => a !== amenity));
+                    } else {
+                      filterStore.updateFilter('amenities', [...currentAmenities, amenity]);
+                    }
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[
+                    styles.filterChipText,
+                    { color: isActive ? '#fff' : themeColors.text }
+                  ]}>{amenity}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
       </ScrollView>
 
       <View style={[styles.footer, { backgroundColor: themeColors.card, borderTopColor: themeColors.border }]}>
@@ -636,7 +739,10 @@ const FiltersScreen = observer(() => {
               <Ionicons name="search" size={20} color="#fff" />
               <Text style={styles.applyBtnText}>
                 Search Properties
-                {hasActiveFilters() && ` (${Object.values(filters).filter(v => v !== '').length})`}
+                {hasActiveFilters() && ` (${Object.entries(filters).filter(([key, value]) => {
+                  if (key === 'amenities') return Array.isArray(value) && value.length > 0;
+                  return value !== '' && value !== 'USD';
+                }).length})`}
               </Text>
             </>
           )}
@@ -729,6 +835,24 @@ const styles = StyleSheet.create({
   filterChipText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  currencyToggle: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  currencyButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  currencyText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   sliderWrapper: {
     height: 88,

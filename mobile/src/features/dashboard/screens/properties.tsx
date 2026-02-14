@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Modal, ScrollView, RefreshControl, PanResponder } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Modal, ScrollView, RefreshControl, PanResponder, TextInput } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -133,6 +133,9 @@ const PropertiesScreen = observer(() => {
   const filterGhostWhite = currentTheme === 'dark' ? themeColors.card : '#F8F8FF';
   
   const [activeTab, setActiveTab] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searching, setSearching] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const [filters, setFilters] = useState({
     city: (params.city as string) || '',
@@ -149,6 +152,7 @@ const PropertiesScreen = observer(() => {
     min_price: '',
     max_price: '',
     bedrooms: '',
+    bathrooms: '',
     agent_id: '',
   });
 
@@ -203,23 +207,34 @@ const PropertiesScreen = observer(() => {
     }
   }, [authStore.isAuthenticated]);
 
-  const handleSearch = useCallback(async (isLoadMoreArg = false) => {
+  const handleSearch = useCallback(async (isLoadMoreArg = false, searchText?: string) => {
     const isLoadMore = isLoadMoreArg === true;
     setShowFilters(false);
     try {
       const queryParams: any = { ...filters };
       
+      // Add search query if provided
+      const currentSearch = searchText !== undefined ? searchText : searchQuery;
+      if (currentSearch && currentSearch.trim()) {
+        queryParams.search = currentSearch.trim();
+      }
+      
       // Apply active tab category filter
       if (activeTab !== 'all') {
         if (['house', 'apartment', 'land', 'shop'].includes(activeTab)) {
           queryParams.property_type = activeTab;
-          queryParams.record_kind = '';
-          queryParams.property_category = '';
+          delete queryParams.record_kind;
+          delete queryParams.property_category;
         } else if (['tower', 'market', 'sharak'].includes(activeTab)) {
-          queryParams.property_type = '';
+          delete queryParams.property_type;
           queryParams.record_kind = 'container';
           queryParams.property_category = activeTab;
         }
+      } else {
+        // When 'all' is selected, remove these filters
+        delete queryParams.property_type;
+        delete queryParams.record_kind;
+        delete queryParams.property_category;
       }
       
       // Convert purpose to is_available_for_sale/is_available_for_rent
@@ -261,13 +276,37 @@ const PropertiesScreen = observer(() => {
       await propertyStore.searchProperties(cleanFilters, isLoadMore);
     } catch (error) {
       console.error('Search failed', error);
+    } finally {
+      setSearching(false);
     }
-  }, [filters, activeTab]);
+  }, [filters, activeTab, searchQuery]);
 
   useEffect(() => {
     fetchAgents();
-    handleSearch();
-  }, [fetchAgents, handleSearch]);
+  }, [fetchAgents]);
+
+  // Debounced search effect
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      setSearching(true);
+      handleSearch(false, searchQuery);
+    }, 500);
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchQuery, filters, activeTab]);
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    setSearching(true);
+  };
 
   const onRefresh = () => {
     handleSearch();
@@ -289,6 +328,8 @@ const PropertiesScreen = observer(() => {
   };
 
   const clearFilters = () => {
+    setSearchQuery('');
+    setActiveTab('all');
     setFilters({
       city: '',
       province_id: '',
@@ -304,6 +345,7 @@ const PropertiesScreen = observer(() => {
       min_price: '',
       max_price: '',
       bedrooms: '',
+      bathrooms: '',
       agent_id: '',
     });
     setTempFilters({
@@ -321,6 +363,7 @@ const PropertiesScreen = observer(() => {
       min_price: '',
       max_price: '',
       bedrooms: '',
+      bathrooms: '',
       agent_id: '',
     });
     router.setParams({
@@ -335,12 +378,17 @@ const PropertiesScreen = observer(() => {
   };
 
   const hasActiveFilters = () => {
-    return filters.purpose !== '' || 
+    return searchQuery !== '' ||
+           filters.purpose !== '' || 
            filters.min_price !== '' || 
            filters.max_price !== '' || 
            filters.bedrooms !== '' || 
+           filters.bathrooms !== '' || 
            filters.agent_id !== '';
   };
+
+  const filteredCount = propertyStore.properties.length;
+  const filteredCountLabel = `${filteredCount} ${filteredCount === 1 ? 'property' : 'properties'} found`;
 
   return (
     <ScreenLayout
@@ -357,12 +405,7 @@ const PropertiesScreen = observer(() => {
         </View>
       )}
 
-      {propertyStore.loading && propertyStore.properties.length === 0 ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="small" color={themeColors.primary} />
-        </View>
-      ) : (
-        <FlatList
+      <FlatList
           data={propertyStore.properties}
           ListHeaderComponent={
             <View style={styles.listHeader}>
@@ -420,38 +463,55 @@ const PropertiesScreen = observer(() => {
                   </View>
                 </View>
                 
-                <TouchableOpacity 
-                  style={[styles.modernSearchContainer, { backgroundColor: themeColors.card }]}
-                  activeOpacity={0.9}
-                  onPress={() => router.push('/search')}
-                >
+                <View style={[styles.modernSearchContainer, { backgroundColor: themeColors.card }]}>
                   <View style={[styles.modernSearchIcon, { backgroundColor: themeColors.background }]}>
-                    <Ionicons name="search" size={20} color={themeColors.primary} />
+                    {searching ? (
+                      <ActivityIndicator size="small" color={themeColors.primary} />
+                    ) : (
+                      <Ionicons name="search" size={20} color={themeColors.primary} />
+                    )}
                   </View>
-                  <Text style={[styles.modernSearchText, { color: themeColors.text }]} numberOfLines={1}>
-                    {filters.area_name ? (
-                      `${filters.province_name} > ${filters.district_name} > ${filters.area_name}`
-                    ) : filters.district_name ? (
-                      `${filters.province_name} > ${filters.district_name}`
-                    ) : filters.province_name ? (
-                      filters.province_name
-                    ) : filters.city ? (
-                      filters.city
-                    ) : 'Search location, property...'}
-                  </Text>
-                  {(filters.city || filters.province_name || filters.district_name || filters.area_name) && (
+                  <TextInput
+                    style={[styles.modernSearchInput, { color: themeColors.text }]}
+                    placeholder="Search by title, code, location, agent..."
+                    placeholderTextColor={themeColors.subtext}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    returnKeyType="search"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                  {searchQuery.length > 0 && (
                     <TouchableOpacity 
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        clearFilters();
-                      }}
+                      onPress={clearSearch}
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                       style={styles.modernClearBtn}
                     >
                       <Ionicons name="close-circle" size={22} color={themeColors.subtext} />
                     </TouchableOpacity>
                   )}
-                </TouchableOpacity>
+                </View>
+                
+                {(filters.city || filters.province_name || filters.district_name || filters.area_name) && (
+                  <View style={[styles.locationFilterBadge, { backgroundColor: themeColors.card }]}>
+                    <Ionicons name="location" size={14} color={themeColors.primary} />
+                    <Text style={[styles.locationFilterText, { color: themeColors.text }]} numberOfLines={1}>
+                      {filters.area_name ? (
+                        `${filters.province_name} > ${filters.district_name} > ${filters.area_name}`
+                      ) : filters.district_name ? (
+                        `${filters.province_name} > ${filters.district_name}`
+                      ) : filters.province_name ? (
+                        filters.province_name
+                      ) : filters.city}
+                    </Text>
+                    <TouchableOpacity 
+                      onPress={clearFilters}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="close" size={16} color={themeColors.subtext} />
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
               
               <ScrollView 
@@ -498,6 +558,21 @@ const PropertiesScreen = observer(() => {
                   );
                 })}
               </ScrollView>
+
+              <View style={styles.filteredCountRow}>
+                <Text style={[styles.filteredCountText, { color: themeColors.subtext }]}>
+                  {filteredCountLabel}
+                </Text>
+              </View>
+
+              {propertyStore.loading && propertyStore.properties.length > 0 && (
+                <View style={styles.listInlineLoader}>
+                  <ActivityIndicator size="small" color={themeColors.primary} />
+                  <Text style={[styles.inlineLoaderText, { color: themeColors.subtext }]}>
+                    Updating properties...
+                  </Text>
+                </View>
+              )}
             </View>
           }
           renderItem={({ item, index }) => (
@@ -527,17 +602,23 @@ const PropertiesScreen = observer(() => {
           onEndReachedThreshold={0.5}
           ListFooterComponent={renderFooter}
           ListEmptyComponent={
-            <View style={styles.center}>
-              <View style={[styles.emptyIconContainer, { backgroundColor: themeColors.card }]}>
-                <Ionicons name="search-outline" size={40} color={themeColors.subtext} />
+            propertyStore.loading && propertyStore.properties.length === 0 ? (
+              <View style={styles.center}>
+                <ActivityIndicator size="large" color={themeColors.primary} />
+                <Text style={[styles.loadingText, { color: themeColors.subtext, marginTop: 16 }]}>Loading properties...</Text>
               </View>
-              <Text style={[styles.emptyTitle, { color: themeColors.text }]}>No results found</Text>
-              <Text style={[styles.emptySubtitle, { color: themeColors.subtext }]}>Try adjusting your filters</Text>
-            </View>
+            ) : (
+              <View style={styles.center}>
+                <View style={[styles.emptyIconContainer, { backgroundColor: themeColors.card }]}>
+                  <Ionicons name="search-outline" size={40} color={themeColors.subtext} />
+                </View>
+                <Text style={[styles.emptyTitle, { color: themeColors.text }]}>No results found</Text>
+                <Text style={[styles.emptySubtitle, { color: themeColors.subtext }]}>Try adjusting your filters</Text>
+              </View>
+            )
           }
         />
-      )}
-
+      
       {/* Filters Modal */}
       <Modal visible={showFilters} animationType="slide" transparent={false}>
         <ScreenLayout backgroundColor={themeColors.background}>
@@ -553,6 +634,7 @@ const PropertiesScreen = observer(() => {
                 min_price: '',
                 max_price: '',
                 bedrooms: '',
+                bathrooms: '',
                 agent_id: '',
               });
             }}>
@@ -601,25 +683,52 @@ const PropertiesScreen = observer(() => {
 
             <View style={styles.filterSection}>
               <Text style={[styles.filterLabel, { color: themeColors.text }]}>Bedrooms</Text>
-              <View style={styles.chipGrid}>
-                {['1', '2', '3', '4', '5+'].map((num) => (
-                  <TouchableOpacity
-                    key={num}
-                    style={[
-                      styles.filterChip, 
-                      { backgroundColor: filterGhostWhite },
-                      tempFilters.bedrooms === num.replace('+', '') && { backgroundColor: themeColors.primary }
-                    ]}
-                    onPress={() => updateTempFilter('bedrooms', tempFilters.bedrooms === num.replace('+', '') ? '' : num.replace('+', ''))}
-                  >
-                    <Text style={[
-                      styles.filterChipText, 
-                      { color: themeColors.text },
-                      tempFilters.bedrooms === num.replace('+', '') && { color: '#fff' }
-                    ]}>{num}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.chipGrid}>
+                  {Array.from({ length: 20 }, (_, i) => String(i + 1)).concat(['20+']).map((num) => (
+                    <TouchableOpacity
+                      key={num}
+                      style={[
+                        styles.filterChip, 
+                        { backgroundColor: filterGhostWhite },
+                        tempFilters.bedrooms === num.replace('+', '') && { backgroundColor: themeColors.primary }
+                      ]}
+                      onPress={() => updateTempFilter('bedrooms', tempFilters.bedrooms === num.replace('+', '') ? '' : num.replace('+', ''))}
+                    >
+                      <Text style={[
+                        styles.filterChipText, 
+                        { color: themeColors.text },
+                        tempFilters.bedrooms === num.replace('+', '') && { color: '#fff' }
+                      ]}>{num}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+
+            <View style={styles.filterSection}>
+              <Text style={[styles.filterLabel, { color: themeColors.text }]}>Bathrooms</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.chipGrid}>
+                  {Array.from({ length: 20 }, (_, i) => String(i + 1)).concat(['20+']).map((num) => (
+                    <TouchableOpacity
+                      key={num}
+                      style={[
+                        styles.filterChip, 
+                        { backgroundColor: filterGhostWhite },
+                        tempFilters.bathrooms === num.replace('+', '') && { backgroundColor: themeColors.primary }
+                      ]}
+                      onPress={() => updateTempFilter('bathrooms', tempFilters.bathrooms === num.replace('+', '') ? '' : num.replace('+', ''))}
+                    >
+                      <Text style={[
+                        styles.filterChipText, 
+                        { color: themeColors.text },
+                        tempFilters.bathrooms === num.replace('+', '') && { color: '#fff' }
+                      ]}>{num}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
             </View>
 
             {agents.filter((agent: any) => agent.role !== 'admin').length > 0 && (
@@ -843,6 +952,27 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingRight: 40,
   },
+  filteredCountRow: {
+    paddingHorizontal: 20,
+    marginTop: -14,
+    marginBottom: 12,
+  },
+  filteredCountText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  listInlineLoader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: -6,
+    marginBottom: 10,
+  },
+  inlineLoaderText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
   premiumCategoryChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1014,6 +1144,35 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '800',
+  },
+  modernSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    padding: 0,
+  },
+  locationFilterBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    marginTop: 12,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  locationFilterText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  loadingText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

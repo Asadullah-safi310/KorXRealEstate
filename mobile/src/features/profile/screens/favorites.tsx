@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Platform, RefreshControl } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -13,39 +13,47 @@ const FavoritesScreen = observer(() => {
   const router = useRouter();
   const themeColors = useThemeColor();
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [favoriteProperties, setFavoriteProperties] = useState<any[]>([]);
 
-  useEffect(() => {
-    const fetchFavoriteProperties = async () => {
-      if (favoriteStore.favoriteIds.length === 0) {
-        setFavoriteProperties([]);
-        return;
-      }
+  const fetchFavoriteProperties = async () => {
+    if (favoriteStore.favoriteIds.length === 0) {
+      setFavoriteProperties([]);
+      setLoading(false);
+      return;
+    }
 
-      setLoading(true);
-      try {
-        const promises = favoriteStore.favoriteIds.map(id => 
-          propertyService.getPropertyById(id).catch(err => {
-            console.error(`Failed to fetch property ${id}`, err);
-            return null;
-          })
-        );
+    setLoading(true);
+    try {
+      const promises = favoriteStore.favoriteIds.map(id => 
+        propertyService.getPublicPropertyById(id).catch(err => {
+          console.error(`Failed to fetch property ${id}`, err);
+          return null;
+        })
+      );
+      
+      const results = await Promise.all(promises);
+      const properties = results
+        .filter(res => res !== null)
+        .map(res => res.data);
         
-        const results = await Promise.all(promises);
-        const properties = results
-          .filter(res => res !== null)
-          .map(res => res.data);
-          
-        setFavoriteProperties(properties);
-      } catch (error) {
-        console.error('Error fetching favorites', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+      setFavoriteProperties(properties);
+    } catch (error) {
+      console.error('Error fetching favorites', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchFavoriteProperties();
+    setRefreshing(false);
+  };
+
+  useEffect(() => {
     fetchFavoriteProperties();
-  }, []);
+  }, [JSON.stringify(favoriteStore.favoriteIds)]);
 
   return (
     <ScreenLayout backgroundColor={themeColors.background} scrollable={false}>
@@ -94,6 +102,14 @@ const FavoritesScreen = observer(() => {
           keyExtractor={(item) => item.property_id.toString()}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={themeColors.primary}
+              colors={[themeColors.primary]}
+            />
+          }
         />
       )}
     </ScreenLayout>

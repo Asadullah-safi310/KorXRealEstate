@@ -12,6 +12,17 @@ const Property = sequelize.define('Property', {
     allowNull: true,
     comment: 'Real person who owns the property',
   },
+  owner_name: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    comment: 'Name of the real property owner',
+  },
+  property_code: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    unique: true,
+    comment: 'Unique auto-generated property code',
+  },
   agent_id: {
     type: DataTypes.INTEGER,
     allowNull: true,
@@ -200,6 +211,13 @@ const Property = sequelize.define('Property', {
     },
     {
       fields: ['record_kind', 'status'],
+    },
+    {
+      fields: ['owner_name'],
+    },
+    {
+      unique: true,
+      fields: ['property_code'],
     }
   ]
 });

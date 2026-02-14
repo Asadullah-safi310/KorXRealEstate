@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, StyleSheet, ActivityIndicator, TouchableOpacity, Dimensions, Linking, Alert, Platform, Modal, FlatList } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { AppText } from '../../../components/AppText';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -13,7 +14,7 @@ import Avatar from '../../../components/Avatar';
 import PropertyCard from '../../../components/PropertyCard';
 import { getImageUrl } from '../../../utils/mediaUtils';
 import { shareProperty } from '../../../utils/shareUtils';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import ScreenLayout from '../../../components/ScreenLayout';
 import Animated, { 
@@ -46,6 +47,7 @@ try {
 
 const { width, height } = Dimensions.get('window');
 const HEADER_HEIGHT = 420;
+const FOOTER_SAFE_HEIGHT = 96;
 
 const FullscreenViewer = ({ 
   visible, 
@@ -333,7 +335,8 @@ const PropertyDetailsScreen = observer(() => {
 
   const canEdit = property && (
     authStore.isAdmin || 
-    authStore.user?.user_id === property.created_by_user_id
+    authStore.user?.user_id === property.created_by_user_id ||
+    authStore.user?.user_id === property.agent_id
   );
 
   const canDeal = property && authStore.isAgent && (
@@ -434,14 +437,17 @@ const PropertyDetailsScreen = observer(() => {
   const isChild = property.parent_id != null;
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.background }]}
+      edges={['left', 'right', 'bottom']}
+    >
       {/* Main Content Scrollable */}
       <Animated.ScrollView
         onScroll={scrollHandler}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ 
-          paddingBottom: insets.bottom + 120,
+          paddingBottom: insets.bottom + FOOTER_SAFE_HEIGHT + 24,
           backgroundColor: 'transparent'
         }}
       >
@@ -530,9 +536,9 @@ const PropertyDetailsScreen = observer(() => {
                   </AppText>
                 </View>
               ) : null}
-              <View style={[styles.statusBadge, { backgroundColor: property.status === 'active' ? '#dcfce7' : '#fee2e2' }]}>
-                <AppText variant="tiny" weight="bold" color={property.status === 'active' ? '#166534' : '#991b1b'}>
-                  {property.status === 'active' ? 'ACTIVE' : 'INACTIVE'}
+              <View style={[styles.statusBadge, { backgroundColor: (property.is_available_for_rent || property.is_available_for_sale) ? '#dcfce7' : '#fee2e2' }]}>
+                <AppText variant="tiny" weight="bold" color={(property.is_available_for_rent || property.is_available_for_sale) ? '#166534' : '#991b1b'}>
+                  {(property.is_available_for_rent || property.is_available_for_sale) ? 'Active' : 'De active'}
                 </AppText>
               </View>
             </View>
@@ -694,7 +700,7 @@ const PropertyDetailsScreen = observer(() => {
           {property.record_kind === 'container' && (
             <View style={styles.section}>
               <View style={styles.sectionHeaderRow}>
-                <AppText variant="title" weight="bold" color={theme.text} style={styles.sectionTitle}>
+                <AppText variant="small" weight="bold" color={theme.text} style={[styles.sectionTitle, { fontSize: 13 }]}>
                   Units Available in This {property.property_category ? property.property_category.charAt(0).toUpperCase() + property.property_category.slice(1) : 'Container'}
                 </AppText>
                 {canAddUnit && (
@@ -855,15 +861,47 @@ const PropertyDetailsScreen = observer(() => {
             </TouchableOpacity>
           </View>
 
-          {/* Listed By Section */}
-          <View style={styles.section}>
-            <AppText variant="title" weight="bold" color={theme.text} style={styles.sectionTitle}>Listed By</AppText>
-            <ProfileSection 
-              title="" 
-              user={listingUser} 
-              type={listingUser?.role === 'agent' ? "Agent" : "User"} 
-            />
-          </View>
+          {/* Owner Name and Property Code (Only visible to creator/agent) */}
+          {canEdit && (property.owner_name || property.property_code) && (
+            <View style={styles.section}>
+              <AppText variant="title" weight="bold" color={theme.text} style={styles.sectionTitle}>Property Information</AppText>
+              <View style={[styles.ownerInfoCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                {property.property_code && (
+                  <View style={styles.ownerInfoRow}>
+                    <View style={styles.ownerInfoLeft}>
+                      <Ionicons name="qr-code-outline" size={18} color={primaryColor} />
+                      <View style={{ marginLeft: 10 }}>
+                        <AppText variant="caption" color={theme.subtext}>Property Code</AppText>
+                        <AppText variant="body" weight="bold" color={theme.text}>{property.property_code}</AppText>
+                      </View>
+                    </View>
+                    <TouchableOpacity 
+                      style={[styles.copyButton, { backgroundColor: primaryColor + '15' }]}
+                      onPress={async () => {
+                        if (property.property_code) {
+                          await Clipboard.setStringAsync(property.property_code);
+                          Alert.alert('Copied', `Property code ${property.property_code} copied to clipboard`);
+                        }
+                      }}
+                    >
+                      <Ionicons name="copy-outline" size={16} color={primaryColor} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+                {property.owner_name && (
+                  <View style={[styles.ownerInfoRow, property.property_code && { marginTop: 12, borderTopWidth: 1, borderTopColor: theme.border + '30', paddingTop: 12 }]}>
+                    <View style={styles.ownerInfoLeft}>
+                      <Ionicons name="person-outline" size={18} color={primaryColor} />
+                      <View style={{ marginLeft: 10 }}>
+                        <AppText variant="caption" color={theme.subtext}>Owner Name</AppText>
+                        <AppText variant="body" weight="bold" color={theme.text}>{property.owner_name}</AppText>
+                      </View>
+                    </View>
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
         </View>
       </Animated.ScrollView>
 
@@ -965,7 +1003,7 @@ const PropertyDetailsScreen = observer(() => {
           onClose={() => setViewerVisible(false)} 
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 });
 
@@ -1369,6 +1407,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
     borderRadius: 16,
+  },
+  ownerInfoCard: {
+    marginTop: 16,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1.5,
+  },
+  ownerInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  ownerInfoLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  copyButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   addUnitBtn: {
     flexDirection: 'row',
