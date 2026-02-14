@@ -711,6 +711,7 @@ const PropertyDetailsScreen = observer(() => {
                         property={child}
                         index={index}
                         variant="compact"
+                        hideMediaActions={true}
                         onPress={() => router.push(`/property/${child.property_id}`)}
                       />
                     </View>

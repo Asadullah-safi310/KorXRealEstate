@@ -117,6 +117,15 @@ const ParentProfileScreen = observer(() => {
 
   const parent = parentStore.currentParent;
   const units = parentStore.children;
+  const currentUser = authStore.user as any;
+  const currentUserId = currentUser?.user_id;
+  const currentPersonId = currentUser?.person_id;
+  const isAgentUser = authStore.isAuthenticated && authStore.user?.role === 'agent';
+  const isParentCreator = !!parent?.created_by_user_id && String(parent.created_by_user_id) === String(currentUserId);
+  const isParentListingAgent = !!parent?.agent_id && (
+    String(parent.agent_id) === String(currentPersonId) || String(parent.agent_id) === String(currentUserId)
+  );
+  const canViewAllProperties = !!isAgentUser && (isParentCreator || isParentListingAgent);
 
   const parentAgentId = parent?.agent_id || parent?.created_by_user_id;
   const agentAddedUnits = units.filter((u) => {
@@ -153,6 +162,12 @@ const ParentProfileScreen = observer(() => {
 
     return bedrooms === Number(selectedBeds);
   });
+
+  useEffect(() => {
+    if (!canViewAllProperties && activeTab === 'allProperties') {
+      setActiveTab('available');
+    }
+  }, [canViewAllProperties, activeTab]);
 
   if (!parent) {
     return (
@@ -286,18 +301,20 @@ const ParentProfileScreen = observer(() => {
                 Available Homes ({availableUnits.length})
               </AppText>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tabItem, activeTab === 'allProperties' && { borderBottomColor: theme.primary, borderBottomWidth: 2 }]}
-              onPress={() => setActiveTab('allProperties')}
-            >
-              <AppText
-                variant="small"
-                weight={activeTab === 'allProperties' ? "bold" : "regular"}
-                color={activeTab === 'allProperties' ? theme.primary : theme.subtext}
+            {canViewAllProperties && (
+              <TouchableOpacity
+                style={[styles.tabItem, activeTab === 'allProperties' && { borderBottomColor: theme.primary, borderBottomWidth: 2 }]}
+                onPress={() => setActiveTab('allProperties')}
               >
-                All Properties ({agentAddedUnits.length})
-              </AppText>
-            </TouchableOpacity>
+                <AppText
+                  variant="small"
+                  weight={activeTab === 'allProperties' ? "bold" : "regular"}
+                  color={activeTab === 'allProperties' ? theme.primary : theme.subtext}
+                >
+                  All Properties ({agentAddedUnits.length})
+                </AppText>
+              </TouchableOpacity>
+            )}
           </View>
 
           {activeTab === 'features' ? (
@@ -429,6 +446,17 @@ const ParentProfileScreen = observer(() => {
                 )}
               </View>
 
+              <View style={[styles.homesSummaryCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                <View style={styles.homesSummaryRow}>
+                  <AppText variant="tiny" weight="bold" color={theme.subtext}>Showing</AppText>
+                  <AppText variant="small" weight="bold" color={theme.primary}>{filteredUnits.length}</AppText>
+                  <AppText variant="tiny" weight="bold" color={theme.subtext}>
+                    {activeTab === 'available' ? 'available homes' : 'properties added by agent'}
+                  </AppText>
+                </View>
+              </View>
+
+              <AppText variant="tiny" weight="bold" color={theme.subtext} style={styles.filterLabel}>PROPERTY TYPE</AppText>
               <ScrollView 
                 horizontal 
                 showsHorizontalScrollIndicator={false} 
@@ -456,6 +484,7 @@ const ParentProfileScreen = observer(() => {
                 ))}
               </ScrollView>
 
+              <AppText variant="tiny" weight="bold" color={theme.subtext} style={styles.filterLabel}>BEDROOMS</AppText>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -484,47 +513,27 @@ const ParentProfileScreen = observer(() => {
               </ScrollView>
 
               {filteredUnits.length > 0 ? (
-                activeTab === 'allProperties' ? (
-                  <FlatList
-                    data={filteredUnits}
-                    numColumns={2}
-                    scrollEnabled={false}
-                    key={'all-properties-grid'}
-                    columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: 12 }}
-                    contentContainerStyle={{ paddingBottom: 6 }}
-                    keyExtractor={(unit) => unit.property_id.toString()}
-                    renderItem={({ item: unit, index }) => (
-                      <View style={{ width: (width - 56) / 2 }}>
-                        <PropertyCard
-                          property={unit}
-                          index={index}
-                          variant="compact"
-                          compactDensity="small"
-                          onPress={() => router.push(`/property/${unit.property_id}`)}
-                        />
-                      </View>
-                    )}
-                  />
-                ) : (
-                  <FlatList
-                    data={filteredUnits}
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{ paddingRight: 20 }}
-                    keyExtractor={(unit) => unit.property_id.toString()}
-                    renderItem={({ item: unit, index }) => (
-                      <View style={{ marginRight: 12, width: 250 }}>
-                        <PropertyCard 
-                          property={unit} 
-                          index={index}
-                          variant="compact"
-                          compactDensity="small"
-                          onPress={() => router.push(`/property/${unit.property_id}`)}
-                        />
-                      </View>
-                    )}
-                  />
-                )
+                <FlatList
+                  data={filteredUnits}
+                  numColumns={2}
+                  scrollEnabled={false}
+                  key={activeTab === 'available' ? 'available-homes-grid' : 'all-properties-grid'}
+                  columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: 12 }}
+                  contentContainerStyle={{ paddingBottom: 6 }}
+                  keyExtractor={(unit) => unit.property_id.toString()}
+                  renderItem={({ item: unit, index }) => (
+                    <View style={{ width: (width - 56) / 2 }}>
+                      <PropertyCard
+                        property={unit}
+                        index={index}
+                        variant="compact"
+                        compactDensity="small"
+                        hideMediaActions={true}
+                        onPress={() => router.push(`/property/${unit.property_id}`)}
+                      />
+                    </View>
+                  )}
+                />
               ) : (
                 <View style={[styles.emptyUnits, { backgroundColor: theme.card, borderColor: theme.border }]}>
                   <Ionicons name="home-outline" size={40} color={theme.border} />
@@ -567,6 +576,24 @@ const styles = StyleSheet.create({
   mapOverlayBlur: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, flexDirection: 'row', alignItems: 'center', overflow: 'hidden' },
   markerContainer: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
   unitsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  homesSummaryCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  homesSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  filterLabel: {
+    marginBottom: 6,
+    marginLeft: 2,
+    letterSpacing: 0.6,
+  },
   addUnitBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, gap: 4 },
   unitsList: { gap: 16 },
   emptyUnits: { padding: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed', borderWidth: 1.5 },

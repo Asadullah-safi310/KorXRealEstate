@@ -42,10 +42,11 @@ const NearbyPlaces: React.FC<NearbyPlacesProps> = ({ propertyId }) => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<NearbyPlacesData | null>(null);
   const theme = useThemeColor();
-  const primaryColor = useThemeColor().primary;
+  const primaryColor = theme.primary;
 
   useEffect(() => {
     fetchNearbyPlaces();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [propertyId]);
 
   const fetchNearbyPlaces = async () => {

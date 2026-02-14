@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, StyleSheet, ActivityIndicator, TouchableOpacity, Linking, Platform, ScrollView } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, TouchableOpacity, Linking, Platform, ScrollView, FlatList, Dimensions, TextInput } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -27,6 +27,12 @@ const PersonDetailsScreen = observer(() => {
   const [properties, setProperties] = useState<any[]>([]);
   const [loadingProperties, setLoadingProperties] = useState(false);
   const [isUser, setIsUser] = useState(false);
+  const [selectedType, setSelectedType] = useState('ALL');
+  const [selectedPurpose, setSelectedPurpose] = useState<'ALL' | 'SALE' | 'RENT'>('ALL');
+  const [selectedBeds, setSelectedBeds] = useState('ALL');
+  const [selectedBaths, setSelectedBaths] = useState('ALL');
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -90,6 +96,11 @@ const PersonDetailsScreen = observer(() => {
     const parent: any[] = [];
 
     properties.forEach((prop: any) => {
+      const isSale = !!prop?.forSale || !!prop?.is_available_for_sale || !!prop?.for_sale || !!prop?.isAvailableForSale;
+      const isRent = !!prop?.forRent || !!prop?.is_available_for_rent || !!prop?.for_rent || !!prop?.isAvailableForRent;
+      const isAvailable = isSale || isRent;
+      if (!isAvailable) return;
+
       const isContainer = ['tower', 'apartment', 'sharak', 'market'].includes(prop.property_category?.toLowerCase());
       
       if (isContainer && !prop.parent_property_id) {
@@ -109,6 +120,41 @@ const PersonDetailsScreen = observer(() => {
 
     return { individualProperties: individual, parentProperties: parent };
   }, [properties]);
+
+  const propertyTypes = useMemo(() => {
+    const types = Array.from(new Set(individualProperties.map((p: any) => (p.property_type || '').toUpperCase()).filter(Boolean)));
+    return ['ALL', ...types];
+  }, [individualProperties]);
+
+  const filteredIndividualProperties = useMemo(() => {
+    const min = minPrice ? Number(minPrice) : null;
+    const max = maxPrice ? Number(maxPrice) : null;
+
+    return individualProperties.filter((p: any) => {
+      const type = (p.property_type || '').toUpperCase();
+      const isSale = !!p?.forSale || !!p?.is_available_for_sale || !!p?.for_sale || !!p?.isAvailableForSale;
+      const isRent = !!p?.forRent || !!p?.is_available_for_rent || !!p?.for_rent || !!p?.isAvailableForRent;
+      const beds = Number(p?.bedrooms || 0);
+      const baths = Number(p?.bathrooms || 0);
+      const price = Number(p?.sale_price || p?.rent_price || p?.price || 0);
+
+      const typeMatch = selectedType === 'ALL' || type === selectedType;
+      const purposeMatch =
+        selectedPurpose === 'ALL' ||
+        (selectedPurpose === 'SALE' && isSale) ||
+        (selectedPurpose === 'RENT' && isRent);
+      const bedsMatch =
+        selectedBeds === 'ALL' ||
+        (selectedBeds === '5+' ? beds >= 5 : beds === Number(selectedBeds));
+      const bathsMatch =
+        selectedBaths === 'ALL' ||
+        (selectedBaths === '5+' ? baths >= 5 : baths === Number(selectedBaths));
+      const minMatch = min == null || (Number.isFinite(price) && price >= min);
+      const maxMatch = max == null || (Number.isFinite(price) && price <= max);
+
+      return typeMatch && purposeMatch && bedsMatch && bathsMatch && minMatch && maxMatch;
+    });
+  }, [individualProperties, selectedType, selectedPurpose, selectedBeds, selectedBaths, minPrice, maxPrice]);
 
   const handleCall = (phone: string) => {
     if (phone) Linking.openURL(`tel:${phone}`);
@@ -145,6 +191,23 @@ const PersonDetailsScreen = observer(() => {
 
   const name = person.full_name || person.username || 'N/A';
   const role = isUser ? (person.role || 'Agent') : 'Contact';
+  const profileLocation = [
+    person.address,
+    person.AreaData?.name || person.area?.name || person.area_name,
+    person.DistrictData?.name || person.district?.name || person.district,
+    person.ProvinceData?.name || person.province?.name || person.city || person.province_name,
+  ].filter(Boolean).join(', ');
+
+  const propertyLocation = (properties || [])
+    .map((prop: any) => [
+      prop.address || prop.location,
+      prop.AreaData?.name || prop.area?.name || prop.area_name,
+      prop.DistrictData?.name || prop.district?.name || prop.district,
+      prop.ProvinceData?.name || prop.province?.name || prop.city || prop.province_name,
+    ].filter(Boolean).join(', '))
+    .find((loc: string) => !!loc);
+
+  const locationText = profileLocation || propertyLocation || 'Not provided';
 
   return (
     <ScreenLayout 
@@ -217,13 +280,13 @@ const PersonDetailsScreen = observer(() => {
           <InfoItem icon="phone" label="Mobile Number" value={person.phone || 'Private'} theme={theme} />
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <InfoItem icon="email" label="Email Address" value={person.email || 'Private'} theme={theme} />
+          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+          <InfoItem icon="map-marker" label="Location" value={locationText} theme={theme} valueStyle={styles.locationValue} />
           
           {!isUser && (
             <>
               <View style={[styles.divider, { backgroundColor: theme.border }]} />
               <InfoItem icon="card-account-details" label="National Identity" value={person.national_id || 'Not provided'} theme={theme} />
-              <View style={[styles.divider, { backgroundColor: theme.border }]} />
-              <InfoItem icon="map-marker" label="Permanent Address" value={person.address || 'Not provided'} theme={theme} />
             </>
           )}
         </View>
@@ -290,18 +353,123 @@ const PersonDetailsScreen = observer(() => {
                     {isUser ? 'Listed Properties' : 'Associated Properties'}
                   </AppText>
                   <AppText style={[styles.countBadge, { color: theme.primary, backgroundColor: theme.primary + '15' }]}>
-                    {individualProperties.length}
+                    {filteredIndividualProperties.length}
                   </AppText>
                 </View>
-                <View style={styles.propertiesList}>
-                  {individualProperties.map((prop: any) => (
-                    <PropertyCard 
-                      key={prop.property_id} 
-                      property={prop} 
-                      onPress={() => router.push(`/property/${prop.property_id}`)}
+                <View style={[styles.filtersCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                  <AppText variant="tiny" weight="bold" color={theme.subtext} style={styles.filterLabel}>PROPERTY TYPE</AppText>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+                    {propertyTypes.map((type) => (
+                      <TouchableOpacity
+                        key={type}
+                        style={[
+                          styles.filterChip,
+                          { borderColor: theme.border, backgroundColor: theme.background },
+                          selectedType === type && { borderColor: theme.primary, backgroundColor: theme.primary + '15' },
+                        ]}
+                        onPress={() => setSelectedType(type)}
+                      >
+                        <AppText variant="tiny" weight="bold" color={selectedType === type ? theme.primary : theme.subtext}>{type}</AppText>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+
+                  <AppText variant="tiny" weight="bold" color={theme.subtext} style={styles.filterLabel}>SALE / RENT</AppText>
+                  <View style={styles.filterRowWrap}>
+                    {(['ALL', 'SALE', 'RENT'] as const).map((purpose) => (
+                      <TouchableOpacity
+                        key={purpose}
+                        style={[
+                          styles.filterChip,
+                          { borderColor: theme.border, backgroundColor: theme.background },
+                          selectedPurpose === purpose && { borderColor: theme.primary, backgroundColor: theme.primary + '15' },
+                        ]}
+                        onPress={() => setSelectedPurpose(purpose)}
+                      >
+                        <AppText variant="tiny" weight="bold" color={selectedPurpose === purpose ? theme.primary : theme.subtext}>{purpose}</AppText>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <AppText variant="tiny" weight="bold" color={theme.subtext} style={styles.filterLabel}>PRICE</AppText>
+                  <View style={styles.priceRow}>
+                    <TextInput
+                      value={minPrice}
+                      onChangeText={setMinPrice}
+                      keyboardType="numeric"
+                      placeholder="Min"
+                      placeholderTextColor={theme.subtext}
+                      style={[styles.priceInput, { borderColor: theme.border, color: theme.text, backgroundColor: theme.background }]}
                     />
-                  ))}
+                    <TextInput
+                      value={maxPrice}
+                      onChangeText={setMaxPrice}
+                      keyboardType="numeric"
+                      placeholder="Max"
+                      placeholderTextColor={theme.subtext}
+                      style={[styles.priceInput, { borderColor: theme.border, color: theme.text, backgroundColor: theme.background }]}
+                    />
+                  </View>
+
+                  <AppText variant="tiny" weight="bold" color={theme.subtext} style={styles.filterLabel}>BEDS & BATHS</AppText>
+                  <View style={styles.filterRowWrap}>
+                    {['ALL', '1', '2', '3', '4', '5+'].map((value) => (
+                      <TouchableOpacity
+                        key={`beds-${value}`}
+                        style={[
+                          styles.filterChip,
+                          { borderColor: theme.border, backgroundColor: theme.background },
+                          selectedBeds === value && { borderColor: theme.primary, backgroundColor: theme.primary + '15' },
+                        ]}
+                        onPress={() => setSelectedBeds(value)}
+                      >
+                        <AppText variant="tiny" weight="bold" color={selectedBeds === value ? theme.primary : theme.subtext}>
+                          Beds {value}
+                        </AppText>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <View style={styles.filterRowWrap}>
+                    {['ALL', '1', '2', '3', '4', '5+'].map((value) => (
+                      <TouchableOpacity
+                        key={`baths-${value}`}
+                        style={[
+                          styles.filterChip,
+                          { borderColor: theme.border, backgroundColor: theme.background },
+                          selectedBaths === value && { borderColor: theme.primary, backgroundColor: theme.primary + '15' },
+                        ]}
+                        onPress={() => setSelectedBaths(value)}
+                      >
+                        <AppText variant="tiny" weight="bold" color={selectedBaths === value ? theme.primary : theme.subtext}>
+                          Baths {value}
+                        </AppText>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
                 </View>
+                <FlatList
+                  data={filteredIndividualProperties}
+                  numColumns={2}
+                  scrollEnabled={false}
+                  key="person-listed-grid"
+                  columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: 12 }}
+                  contentContainerStyle={{ paddingBottom: 6 }}
+                  keyExtractor={(prop: any) => prop.property_id.toString()}
+                  renderItem={({ item: prop, index }) => (
+                    <View style={{ width: (Dimensions.get('window').width - 56) / 2 }}>
+                      <PropertyCard
+                        property={prop}
+                        index={index}
+                        variant="compact"
+                        compactDensity="small"
+                        showLocationInSmall={true}
+                        smallMetaMode="basic"
+                        hideMediaActions={true}
+                        onPress={() => router.push(`/property/${prop.property_id}`)}
+                      />
+                    </View>
+                  )}
+                />
               </>
             )}
 
@@ -318,14 +486,14 @@ const PersonDetailsScreen = observer(() => {
   );
 });
 
-const InfoItem = ({ icon, label, value, theme }: any) => (
+const InfoItem = ({ icon, label, value, theme, valueStyle }: any) => (
   <View style={styles.infoItem}>
     <View style={[styles.infoIconWrapper, { backgroundColor: theme.background }]}>
       <MaterialCommunityIcons name={icon} size={20} color={theme.primary} />
     </View>
     <View style={styles.infoText}>
       <AppText style={[styles.infoLabel, { color: theme.subtext }]}>{label}</AppText>
-      <AppText style={[styles.infoValue, { color: theme.text }]}>{value}</AppText>
+      <AppText style={[styles.infoValue, { color: theme.text }, valueStyle]}>{value}</AppText>
     </View>
   </View>
 );
@@ -485,6 +653,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
+  locationValue: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
   divider: {
     height: 1,
     marginHorizontal: 16,
@@ -513,6 +685,47 @@ const styles = StyleSheet.create({
   },
   propertiesList: {
     gap: 16,
+  },
+  filtersCard: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 12,
+  },
+  filterLabel: {
+    marginBottom: 6,
+    letterSpacing: 0.5,
+  },
+  filterRow: {
+    gap: 8,
+    marginBottom: 10,
+    paddingRight: 8,
+  },
+  filterRowWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+  },
+  filterChip: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 10,
+  },
+  priceInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 10,
+    height: 40,
+    paddingHorizontal: 10,
+    fontSize: 12,
+    fontWeight: '600',
   },
   parentPropertiesScroll: {
     marginBottom: 16,
