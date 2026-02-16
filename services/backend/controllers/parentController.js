@@ -2,7 +2,7 @@ const { Property, Province, District, Area, User } = require('../models');
 const { validationResult } = require('express-validator');
 const { Op } = require('sequelize');
 const { sequelize } = require('../config/db');
-const PERMISSIONS = require('../constants/permissions');
+const { PERMISSIONS } = require('../constants/permissions');
 
 // Helper to check permissions
 const hasPermission = (user, permission) => {
@@ -132,6 +132,9 @@ const createParent = async (req, res) => {
     if (sanitizedPlannedUnits) {
       detailsObj.planned_units = sanitizedPlannedUnits;
     }
+    if (sanitizedTotalFloors) {
+      detailsObj.total_floors = sanitizedTotalFloors;
+    }
 
     // Generate unique property code with owner and agent initials
     const agentName = req.user ? req.user.full_name : null;
@@ -160,8 +163,6 @@ const createParent = async (req, res) => {
       owner_name: owner_name || null,
       property_code: propertyCode,
       agent_id: sanitizedAgentId,
-      total_floors: sanitizedTotalFloors,
-      total_units: sanitizedPlannedUnits, // Keep for compatibility if needed, but primary is details
       created_by_user_id: req.user.user_id,
       status: 'active',
       purpose: null, // Containers must NOT be listed for sale/rent
@@ -250,7 +251,8 @@ const getParentById = async (req, res) => {
         { model: Province, as: 'ProvinceData', attributes: ['name'] },
         { model: District, as: 'DistrictData', attributes: ['name'] },
         { model: Area, as: 'AreaData', attributes: ['name'] },
-        { model: User, as: 'Agent', attributes: ['full_name', 'email'] },
+        { model: User, as: 'Agent', attributes: ['user_id', 'full_name', 'email', 'phone', 'profile_picture'] },
+        { model: User, as: 'Creator', attributes: ['user_id', 'full_name', 'email', 'phone', 'profile_picture'] },
         { 
           model: Property, 
           as: 'Children', 
@@ -569,7 +571,8 @@ const updateParent = async (req, res) => {
         { model: Province, as: 'ProvinceData', attributes: ['name'] },
         { model: District, as: 'DistrictData', attributes: ['name'] },
         { model: Area, as: 'AreaData', attributes: ['name'] },
-        { model: User, as: 'Agent', attributes: ['full_name', 'email'] }
+        { model: User, as: 'Agent', attributes: ['user_id', 'full_name', 'email', 'phone', 'profile_picture'] },
+        { model: User, as: 'Creator', attributes: ['user_id', 'full_name', 'email', 'phone', 'profile_picture'] }
       ],
     });
 

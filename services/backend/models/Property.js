@@ -168,18 +168,6 @@ const Property = sequelize.define('Property', {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
   },
-  is_photo_available: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: false,
-  },
-  is_attachment_available: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: false,
-  },
-  is_video_available: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: false,
-  },
   is_parent: {
     type: DataTypes.BOOLEAN,
     defaultValue: false,

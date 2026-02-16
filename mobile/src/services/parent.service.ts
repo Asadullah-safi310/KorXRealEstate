@@ -22,7 +22,20 @@ export interface ParentProperty {
   DistrictData?: { name: string };
   AreaData?: { name: string };
   Children?: any[];
-  Agent?: { full_name: string; email: string };
+  Agent?: { 
+    user_id: number;
+    full_name: string; 
+    email: string; 
+    phone?: string;
+    profile_picture?: string;
+  };
+  Creator?: { 
+    user_id: number;
+    full_name: string; 
+    email: string; 
+    phone?: string;
+    profile_picture?: string;
+  };
   createdAt: string;
 }
 

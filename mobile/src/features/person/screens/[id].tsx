@@ -33,6 +33,7 @@ const PersonDetailsScreen = observer(() => {
   const [selectedBaths, setSelectedBaths] = useState('ALL');
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
+  const [activeListingTab, setActiveListingTab] = useState<'properties' | 'projects'>('properties');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -91,34 +92,39 @@ const PersonDetailsScreen = observer(() => {
   }, [person, isUser]);
 
   // Separate properties into individual units and parent containers
-  const { individualProperties, parentProperties } = useMemo(() => {
+  const { individualProperties, parentProperties, projectParents } = useMemo(() => {
     const individual: any[] = [];
     const parent: any[] = [];
+    const projects: any[] = [];
+    const projectCategories = ['tower', 'sharak', 'market'];
 
     properties.forEach((prop: any) => {
       const isSale = !!prop?.forSale || !!prop?.is_available_for_sale || !!prop?.for_sale || !!prop?.isAvailableForSale;
       const isRent = !!prop?.forRent || !!prop?.is_available_for_rent || !!prop?.for_rent || !!prop?.isAvailableForRent;
       const isAvailable = isSale || isRent;
-      if (!isAvailable) return;
-
       const isContainer = ['tower', 'apartment', 'sharak', 'market'].includes(prop.property_category?.toLowerCase());
       
       if (isContainer && !prop.parent_property_id) {
         // Map to format expected by ParentReelCard
-        parent.push({
+        const mapped = {
           id: prop.property_id,
           property_id: prop.property_id,
           title: prop.title || prop.property_type || 'Untitled',
           category: prop.property_category?.toLowerCase(),
           images: prop.photos || prop.images || [],
           availableUnits: prop.available_children || prop.total_children || 0,
-        });
+        };
+        parent.push(mapped);
+        if (projectCategories.includes(mapped.category)) {
+          projects.push(mapped);
+        }
       } else if (prop.record_kind === 'listing') {
+        if (!isAvailable) return;
         individual.push(prop);
       }
     });
 
-    return { individualProperties: individual, parentProperties: parent };
+    return { individualProperties: individual, parentProperties: parent, projectParents: projects };
   }, [properties]);
 
   const propertyTypes = useMemo(() => {
@@ -144,17 +150,21 @@ const PersonDetailsScreen = observer(() => {
         (selectedPurpose === 'SALE' && isSale) ||
         (selectedPurpose === 'RENT' && isRent);
       const bedsMatch =
-        selectedBeds === 'ALL' ||
-        (selectedBeds === '5+' ? beds >= 5 : beds === Number(selectedBeds));
+        selectedBeds === 'ALL' || beds === Number(selectedBeds);
       const bathsMatch =
-        selectedBaths === 'ALL' ||
-        (selectedBaths === '5+' ? baths >= 5 : baths === Number(selectedBaths));
+        selectedBaths === 'ALL' || baths === Number(selectedBaths);
       const minMatch = min == null || (Number.isFinite(price) && price >= min);
       const maxMatch = max == null || (Number.isFinite(price) && price <= max);
 
       return typeMatch && purposeMatch && bedsMatch && bathsMatch && minMatch && maxMatch;
     });
   }, [individualProperties, selectedType, selectedPurpose, selectedBeds, selectedBaths, minPrice, maxPrice]);
+
+  useEffect(() => {
+    if (projectParents.length === 0 && activeListingTab === 'projects') {
+      setActiveListingTab('properties');
+    }
+  }, [projectParents.length, activeListingTab]);
 
   const handleCall = (phone: string) => {
     if (phone) Linking.openURL(`tel:${phone}`);
@@ -318,14 +328,49 @@ const PersonDetailsScreen = observer(() => {
           </View>
         ) : (
           <>
-            {parentProperties.length > 0 && (
+            {isUser && projectParents.length > 0 && individualProperties.length > 0 && (
+              <View style={styles.listingTabBar}>
+                <TouchableOpacity
+                  style={[
+                    styles.listingTab,
+                    activeListingTab === 'properties' && { borderBottomColor: theme.primary, borderBottomWidth: 2 },
+                  ]}
+                  onPress={() => setActiveListingTab('properties')}
+                >
+                  <AppText
+                    variant="small"
+                    weight={activeListingTab === 'properties' ? 'bold' : 'regular'}
+                    color={activeListingTab === 'properties' ? theme.primary : theme.subtext}
+                  >
+                    Listed Properties
+                  </AppText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.listingTab,
+                    activeListingTab === 'projects' && { borderBottomColor: theme.primary, borderBottomWidth: 2 },
+                  ]}
+                  onPress={() => setActiveListingTab('projects')}
+                >
+                  <AppText
+                    variant="small"
+                    weight={activeListingTab === 'projects' ? 'bold' : 'regular'}
+                    color={activeListingTab === 'projects' ? theme.primary : theme.subtext}
+                  >
+                    Buildings & Projects ({projectParents.length})
+                  </AppText>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {(activeListingTab === 'projects' || !isUser || projectParents.length === 0 || individualProperties.length === 0) && parentProperties.length > 0 && (
               <>
                 <View style={[styles.sectionHeader, { marginTop: 24 }]}>
                   <AppText style={[styles.sectionTitle, { color: theme.text }]}>
                     Buildings & Projects
                   </AppText>
                   <AppText style={[styles.countBadge, { color: theme.primary, backgroundColor: theme.primary + '15' }]}>
-                    {parentProperties.length}
+                    {isUser && projectParents.length > 0 ? projectParents.length : parentProperties.length}
                   </AppText>
                 </View>
                 <ScrollView 
@@ -334,11 +379,11 @@ const PersonDetailsScreen = observer(() => {
                   contentContainerStyle={styles.parentPropertiesList}
                   style={styles.parentPropertiesScroll}
                 >
-                  {parentProperties.map((prop: any) => (
+                  {(isUser && projectParents.length > 0 ? projectParents : parentProperties).map((prop: any) => (
                     <ParentReelCard 
                       key={prop.property_id} 
                       item={prop} 
-                      onPress={() => router.push(`/property/${prop.property_id}`)}
+                      onPress={() => router.push(`/parent/${prop.category}/${prop.property_id}`)}
                     />
                   ))}
                 </ScrollView>
@@ -346,7 +391,7 @@ const PersonDetailsScreen = observer(() => {
             )}
 
             {/* Individual Property Listings */}
-            {individualProperties.length > 0 && (
+            {(activeListingTab === 'properties' || !isUser || projectParents.length === 0) && individualProperties.length > 0 && (
               <>
                 <View style={[styles.sectionHeader, { marginTop: 24 }]}>
                   <AppText style={[styles.sectionTitle, { color: theme.text }]}>
@@ -413,35 +458,35 @@ const PersonDetailsScreen = observer(() => {
 
                   <AppText variant="tiny" weight="bold" color={theme.subtext} style={styles.filterLabel}>BEDS & BATHS</AppText>
                   <View style={styles.filterRowWrap}>
-                    {['ALL', '1', '2', '3', '4', '5+'].map((value) => (
+                    {['ALL', '1', '2', '3', '4', '5', '6'].map((value) => (
                       <TouchableOpacity
                         key={`beds-${value}`}
                         style={[
-                          styles.filterChip,
+                          styles.filterChipRound,
                           { borderColor: theme.border, backgroundColor: theme.background },
                           selectedBeds === value && { borderColor: theme.primary, backgroundColor: theme.primary + '15' },
                         ]}
                         onPress={() => setSelectedBeds(value)}
                       >
                         <AppText variant="tiny" weight="bold" color={selectedBeds === value ? theme.primary : theme.subtext}>
-                          Beds {value}
+                          {value === 'ALL' ? 'All' : value}
                         </AppText>
                       </TouchableOpacity>
                     ))}
                   </View>
                   <View style={styles.filterRowWrap}>
-                    {['ALL', '1', '2', '3', '4', '5+'].map((value) => (
+                    {['ALL', '1', '2', '3', '4', '5', '6'].map((value) => (
                       <TouchableOpacity
                         key={`baths-${value}`}
                         style={[
-                          styles.filterChip,
+                          styles.filterChipRound,
                           { borderColor: theme.border, backgroundColor: theme.background },
                           selectedBaths === value && { borderColor: theme.primary, backgroundColor: theme.primary + '15' },
                         ]}
                         onPress={() => setSelectedBaths(value)}
                       >
                         <AppText variant="tiny" weight="bold" color={selectedBaths === value ? theme.primary : theme.subtext}>
-                          Baths {value}
+                          {value === 'ALL' ? 'All' : value}
                         </AppText>
                       </TouchableOpacity>
                     ))}
@@ -473,7 +518,7 @@ const PersonDetailsScreen = observer(() => {
               </>
             )}
 
-            {properties.length === 0 && (
+            {(activeListingTab === 'properties' || !isUser || projectParents.length === 0) && properties.length === 0 && (
               <View style={[styles.emptyCard, { backgroundColor: theme.card, borderColor: theme.border, marginTop: 24 }]}>
                 <MaterialCommunityIcons name="home-off" size={40} color={theme.border} />
                 <AppText style={[styles.emptyText, { color: theme.subtext }]}>No properties listed</AppText>
@@ -713,6 +758,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
+  filterChipRound: {
+    borderWidth: 1,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   priceRow: {
     flexDirection: 'row',
     gap: 8,
@@ -733,6 +786,15 @@ const styles = StyleSheet.create({
   parentPropertiesList: {
     gap: 12,
     paddingRight: 20,
+  },
+  listingTabBar: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+  },
+  listingTab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
   },
   loadingList: {
     padding: 40,

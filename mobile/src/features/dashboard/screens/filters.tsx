@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, PanResponder, TextInput } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, PanResponder, TextInput } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useThemeColor } from '../../../hooks/useThemeColor';
 import ScreenLayout from '../../../components/ScreenLayout';
+import { AppText } from '../../../components/AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { personService } from '../../../services/person.service';
 import { userService } from '../../../services/user.service';
@@ -17,13 +18,24 @@ const PriceRangeSlider = ({ min, max, currency, onValueChange, onCurrencyChange,
   const [width, setWidth] = useState(0);
   const [pageX, setPageX] = useState(0);
   const viewRef = useRef<View>(null);
+  const [minInput, setMinInput] = useState(String(min ?? '0'));
+  const [maxInput, setMaxInput] = useState(String(max ?? '0'));
   
-  const RANGE_MIN = currency === 'USD' ? 113883 : 11388300;
-  const RANGE_MAX = currency === 'USD' ? 500000 : 50000000;
-  const minVal = parseFloat(min) || RANGE_MIN;
-  const maxVal = parseFloat(max) || RANGE_MAX;
+  const RANGE_MIN = 0;
+  const baseMax = currency === 'USD' ? 500000 : 15000000;
+  const parsedMin = parseFloat(min);
+  const parsedMax = parseFloat(max);
+  const minVal = Number.isFinite(parsedMin) ? parsedMin : RANGE_MIN;
+  const maxValRaw = Number.isFinite(parsedMax) ? parsedMax : baseMax;
+  const RANGE_MAX = Math.max(baseMax, maxValRaw, Number(maxInput) || 0);
+  const maxVal = maxValRaw;
   
   const histogramData = [5, 8, 12, 18, 25, 40, 35, 45, 60, 55, 40, 30, 25, 18, 12, 8, 5, 3, 2, 1];
+
+  useEffect(() => {
+    setMinInput(String(minVal));
+    setMaxInput(String(maxVal));
+  }, [minVal, maxVal]);
 
   const getPosFromValue = (value: number) => {
     if (width === 0) return 0;
@@ -76,6 +88,41 @@ const PriceRangeSlider = ({ min, max, currency, onValueChange, onCurrencyChange,
 
   return (
     <View>
+      <View style={styles.priceInputRow}>
+        <View style={[styles.priceInputWrap, { borderColor: themeColors.border, backgroundColor: themeColors.background }]}>
+          <AppText variant="tiny" weight="bold" style={[styles.priceInputLabel, { color: themeColors.subtext }]}>MIN</AppText>
+          <TextInput
+            value={minInput}
+            onChangeText={setMinInput}
+            onEndEditing={() => {
+              const nextMin = Math.max(RANGE_MIN, Number(minInput) || 0);
+              const nextMax = Math.max(nextMin, maxVal);
+              onValueChange(nextMin, nextMax);
+            }}
+            keyboardType="numeric"
+            style={[styles.priceInputField, { color: themeColors.text }]}
+            placeholder="0"
+            placeholderTextColor={themeColors.subtext}
+          />
+        </View>
+        <View style={[styles.priceInputWrap, { borderColor: themeColors.border, backgroundColor: themeColors.background }]}>
+          <AppText variant="tiny" weight="bold" style={[styles.priceInputLabel, { color: themeColors.subtext }]}>MAX</AppText>
+          <TextInput
+            value={maxInput}
+            onChangeText={setMaxInput}
+            onEndEditing={() => {
+              const nextMax = Math.max(Number(maxInput) || 0, RANGE_MIN);
+              const nextMin = Math.min(minVal, nextMax);
+              onValueChange(nextMin, nextMax);
+            }}
+            keyboardType="numeric"
+            style={[styles.priceInputField, { color: themeColors.text }]}
+            placeholder={String(baseMax)}
+            placeholderTextColor={themeColors.subtext}
+          />
+        </View>
+      </View>
+
       <View style={styles.currencyToggle}>
         <TouchableOpacity
           style={[
@@ -85,7 +132,7 @@ const PriceRangeSlider = ({ min, max, currency, onValueChange, onCurrencyChange,
           ]}
           onPress={() => onCurrencyChange('AF')}
         >
-          <Text style={[styles.currencyText, { color: currency === 'AF' ? '#fff' : themeColors.text }]}>AF</Text>
+          <AppText style={[styles.currencyText, { color: currency === 'AF' ? '#fff' : themeColors.text }]}>AF</AppText>
         </TouchableOpacity>
         <TouchableOpacity
           style={[
@@ -95,7 +142,7 @@ const PriceRangeSlider = ({ min, max, currency, onValueChange, onCurrencyChange,
           ]}
           onPress={() => onCurrencyChange('USD')}
         >
-          <Text style={[styles.currencyText, { color: currency === 'USD' ? '#fff' : themeColors.text }]}>$</Text>
+          <AppText style={[styles.currencyText, { color: currency === 'USD' ? '#fff' : themeColors.text }]}>$</AppText>
         </TouchableOpacity>
       </View>
       
@@ -137,18 +184,40 @@ const PriceRangeSlider = ({ min, max, currency, onValueChange, onCurrencyChange,
           style={[styles.sliderThumbHitArea, { left: leftPos - 20 }]} 
           {...panResponderLeft.panHandlers}
         >
-          <View style={[styles.sliderThumb, { borderColor: themeColors.primary, backgroundColor: themeColors.background }]} />
+          <View style={[
+            styles.sliderThumb, 
+            { 
+              borderColor: themeColors.primary, 
+              backgroundColor: '#fff',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.12,
+              shadowRadius: 4,
+              elevation: 3
+            }
+          ]} />
         </View>
         <View 
           style={[styles.sliderThumbHitArea, { left: rightPos - 20 }]} 
           {...panResponderRight.panHandlers}
         >
-          <View style={[styles.sliderThumb, { borderColor: themeColors.primary, backgroundColor: themeColors.background }]} />
+          <View style={[
+            styles.sliderThumb, 
+            { 
+              borderColor: themeColors.primary, 
+              backgroundColor: '#fff',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.12,
+              shadowRadius: 4,
+              elevation: 3
+            }
+          ]} />
         </View>
 
         <View style={styles.sliderLabels}>
-          <Text style={[styles.priceLabelValue, { color: themeColors.text }]}>{formatCurrency(minVal)}</Text>
-          <Text style={[styles.priceLabelValue, { color: themeColors.text }]}>{formatCurrency(maxVal)}</Text>
+          <AppText style={[styles.priceLabelValue, { color: themeColors.text }]}>{formatCurrency(minVal)}</AppText>
+          <AppText style={[styles.priceLabelValue, { color: themeColors.text }]}>{formatCurrency(maxVal)}</AppText>
         </View>
       </View>
     </View>
@@ -340,12 +409,12 @@ const FiltersScreen = observer(() => {
 
   return (
     <ScreenLayout backgroundColor={themeColors.background} bottomSpacing={0} edges={['top', 'left', 'right']}>
-             <View style={[styles.header, { 
+        <View style={[styles.header, { 
           backgroundColor: themeColors.background,
           borderBottomColor: themeColors.border + '20'
         }]}>
           <View style={styles.headerContent}>
-            <Text style={[styles.headerTitle, { color: themeColors.text }]}>Filters</Text>
+            <AppText variant="h2" weight="bold" style={[styles.headerTitle, { color: themeColors.text }]}>Filters</AppText>
             <TouchableOpacity 
               onPress={clearFilters}
               style={[styles.resetButton, { 
@@ -354,21 +423,21 @@ const FiltersScreen = observer(() => {
               disabled={!hasActiveFilters()}
             >
               <Ionicons name="refresh" size={16} color={hasActiveFilters() ? '#fff' : themeColors.subtext} />
-              <Text style={[styles.resetButtonText, { 
+              <AppText style={[styles.resetButtonText, { 
                 color: hasActiveFilters() ? '#fff' : themeColors.subtext 
-              }]}>Reset</Text>
+              }]}>Reset</AppText>
             </TouchableOpacity>
           </View>
         </View>
       <ScrollView 
         style={styles.content} 
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: 180 }}
+        contentContainerStyle={{ paddingTop: insets.top + 2, paddingBottom: 180 }}
       >
-        <View style={[styles.filterCard, { backgroundColor: themeColors.card }]}>
-          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Location</Text>
+        <View style={[styles.filterCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+          <AppText variant="title" weight="bold" style={[styles.sectionTitle, { color: themeColors.text }]}>Location</AppText>
           
-          <Text style={[styles.subLabel, { color: themeColors.subtext }]}>Province</Text>
+          <AppText variant="tiny" weight="bold" style={[styles.filterLabel, { color: themeColors.subtext }]}>PROVINCE</AppText>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
             <View style={styles.chipGrid}>
               {provinces.map((province: any) => {
@@ -380,17 +449,17 @@ const FiltersScreen = observer(() => {
                     style={[
                       styles.filterChip,
                       { 
-                        backgroundColor: isActive ? themeColors.primary : themeColors.background,
+                        backgroundColor: isActive ? themeColors.primary + '15' : themeColors.background,
                         borderColor: isActive ? themeColors.primary : themeColors.border
                       }
                     ]}
                     onPress={() => updateFilter('province_id', isActive ? '' : provinceId)}
                     activeOpacity={0.7}
                   >
-                    <Text style={[
+                    <AppText variant="tiny" weight="bold" style={[
                       styles.filterChipText,
-                      { color: isActive ? '#fff' : themeColors.text }
-                    ]}>{province.name}</Text>
+                      { color: isActive ? themeColors.primary : themeColors.subtext }
+                    ]}>{province.name}</AppText>
                   </TouchableOpacity>
                 );
               })}
@@ -399,9 +468,9 @@ const FiltersScreen = observer(() => {
 
           {filters.province_id && districts.length > 0 && (
             <>
-              <Text style={[styles.subLabel, { color: themeColors.subtext, marginTop: 12 }]}>
-                District in {getProvinceName(filters.province_id)}
-              </Text>
+              <AppText variant="tiny" weight="bold" style={[styles.filterLabel, { color: themeColors.subtext, marginTop: 12 }]}>
+                DISTRICT IN {getProvinceName(filters.province_id)}
+              </AppText>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
                 <View style={styles.chipGrid}>
                   {districts.map((district: any) => {
@@ -413,17 +482,17 @@ const FiltersScreen = observer(() => {
                         style={[
                           styles.filterChip,
                           { 
-                            backgroundColor: isActive ? themeColors.primary : themeColors.background,
+                            backgroundColor: isActive ? themeColors.primary + '15' : themeColors.background,
                             borderColor: isActive ? themeColors.primary : themeColors.border
                           }
                         ]}
                         onPress={() => updateFilter('district_id', isActive ? '' : districtId)}
                         activeOpacity={0.7}
                       >
-                        <Text style={[
+                        <AppText variant="tiny" weight="bold" style={[
                           styles.filterChipText,
-                          { color: isActive ? '#fff' : themeColors.text }
-                        ]}>{district.name}</Text>
+                          { color: isActive ? themeColors.primary : themeColors.subtext }
+                        ]}>{district.name}</AppText>
                       </TouchableOpacity>
                     );
                   })}
@@ -434,9 +503,9 @@ const FiltersScreen = observer(() => {
 
           {filters.district_id && areas.length > 0 && (
             <>
-              <Text style={[styles.subLabel, { color: themeColors.subtext, marginTop: 12 }]}>
-                Area in {getDistrictName(filters.district_id)}
-              </Text>
+              <AppText variant="tiny" weight="bold" style={[styles.filterLabel, { color: themeColors.subtext, marginTop: 12 }]}>
+                AREA IN {getDistrictName(filters.district_id)}
+              </AppText>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
                 <View style={styles.chipGrid}>
                   {areas.map((area: any) => {
@@ -448,17 +517,17 @@ const FiltersScreen = observer(() => {
                         style={[
                           styles.filterChip,
                           { 
-                            backgroundColor: isActive ? themeColors.primary : themeColors.background,
+                            backgroundColor: isActive ? themeColors.primary + '15' : themeColors.background,
                             borderColor: isActive ? themeColors.primary : themeColors.border
                           }
                         ]}
                         onPress={() => updateFilter('area_id', isActive ? '' : areaId)}
                         activeOpacity={0.7}
                       >
-                        <Text style={[
+                        <AppText variant="tiny" weight="bold" style={[
                           styles.filterChipText,
-                          { color: isActive ? '#fff' : themeColors.text }
-                        ]}>{area.name}</Text>
+                          { color: isActive ? themeColors.primary : themeColors.subtext }
+                        ]}>{area.name}</AppText>
                       </TouchableOpacity>
                     );
                   })}
@@ -468,8 +537,8 @@ const FiltersScreen = observer(() => {
           )}
         </View>
 
-        <View style={[styles.filterCard, { backgroundColor: themeColors.card }]}>
-          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Property Type</Text>
+        <View style={[styles.filterCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+          <AppText variant="title" weight="bold" style={[styles.sectionTitle, { color: themeColors.text }]}>Property Type</AppText>
           <View style={styles.chipGrid}>
             {[
               { label: 'House', value: 'house' },
@@ -484,25 +553,25 @@ const FiltersScreen = observer(() => {
                   style={[
                     styles.filterChip, 
                     { 
-                      backgroundColor: isActive ? themeColors.primary : themeColors.background,
+                      backgroundColor: isActive ? themeColors.primary + '15' : themeColors.background,
                       borderColor: isActive ? themeColors.primary : themeColors.border
                     }
                   ]}
                   onPress={() => updateFilter('property_type', isActive ? '' : item.value)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[
+                  <AppText variant="tiny" weight="bold" style={[
                     styles.filterChipText, 
-                    { color: isActive ? '#fff' : themeColors.text }
-                  ]}>{item.label}</Text>
+                    { color: isActive ? themeColors.primary : themeColors.subtext }
+                  ]}>{item.label}</AppText>
                 </TouchableOpacity>
               );
             })}
           </View>
         </View>
 
-        <View style={[styles.filterCard, { backgroundColor: themeColors.card }]}>
-          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Category</Text>
+        <View style={[styles.filterCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+          <AppText variant="title" weight="bold" style={[styles.sectionTitle, { color: themeColors.text }]}>Category</AppText>
           <View style={styles.chipGrid}>
             {[
               { label: 'Tower', value: 'tower' },
@@ -516,25 +585,25 @@ const FiltersScreen = observer(() => {
                   style={[
                     styles.filterChip, 
                     { 
-                      backgroundColor: isActive ? themeColors.primary : themeColors.background,
+                      backgroundColor: isActive ? themeColors.primary + '15' : themeColors.background,
                       borderColor: isActive ? themeColors.primary : themeColors.border
                     }
                   ]}
                   onPress={() => updateFilter('property_category', isActive ? '' : item.value)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[
+                  <AppText variant="tiny" weight="bold" style={[
                     styles.filterChipText, 
-                    { color: isActive ? '#fff' : themeColors.text }
-                  ]}>{item.label}</Text>
+                    { color: isActive ? themeColors.primary : themeColors.subtext }
+                  ]}>{item.label}</AppText>
                 </TouchableOpacity>
               );
             })}
           </View>
         </View>
 
-        <View style={[styles.filterCard, { backgroundColor: themeColors.card }]}>
-          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Purpose</Text>
+        <View style={[styles.filterCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+          <AppText variant="title" weight="bold" style={[styles.sectionTitle, { color: themeColors.text }]}>Purpose</AppText>
           <View style={styles.chipGrid}>
             {[
               { label: 'For Sale', value: 'sale' },
@@ -547,38 +616,38 @@ const FiltersScreen = observer(() => {
                   style={[
                     styles.filterChip, 
                     { 
-                      backgroundColor: isActive ? themeColors.primary : themeColors.background,
+                      backgroundColor: isActive ? themeColors.primary + '15' : themeColors.background,
                       borderColor: isActive ? themeColors.primary : themeColors.border
                     }
                   ]}
                   onPress={() => updateFilter('purpose', isActive ? '' : item.value)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[
+                  <AppText variant="tiny" weight="bold" style={[
                     styles.filterChipText, 
-                    { color: isActive ? '#fff' : themeColors.text }
-                  ]}>{item.label}</Text>
+                    { color: isActive ? themeColors.primary : themeColors.subtext }
+                  ]}>{item.label}</AppText>
                 </TouchableOpacity>
               );
             })}
           </View>
         </View>
 
-        <View style={[styles.filterCard, { backgroundColor: themeColors.card }]}>
-          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
+        <View style={[styles.filterCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+          <AppText variant="title" weight="bold" style={[styles.sectionTitle, { color: themeColors.text }]}>
             Price Range {filters.purpose === 'rent' ? '(Rent)' : filters.purpose === 'sale' ? '(Sale)' : ''}
-          </Text>
+          </AppText>
           <PriceRangeSlider 
-            min={filters.min_price || (filters.currency === 'USD' ? '113883' : '11388300')} 
-            max={filters.max_price || (filters.currency === 'USD' ? '500000' : '50000000')} 
+            min={filters.min_price || '0'} 
+            max={filters.max_price || (filters.currency === 'USD' ? '500000' : '15000000')} 
             currency={filters.currency}
             themeColors={themeColors}
             onValueChange={(minVal: number, maxVal: number) => {
               filterStore.updateFilters({ min_price: String(minVal), max_price: String(maxVal) });
             }}
             onCurrencyChange={(currency: string) => {
-              const newMin = currency === 'USD' ? 113883 : 11388300;
-              const newMax = currency === 'USD' ? 500000 : 50000000;
+              const newMin = 0;
+              const newMax = currency === 'USD' ? 500000 : 15000000;
               filterStore.updateFilter('currency', currency);
               filterStore.updateFilters({ 
                 min_price: String(newMin),
@@ -588,29 +657,29 @@ const FiltersScreen = observer(() => {
           />
         </View>
 
-        <View style={[styles.filterCard, { backgroundColor: themeColors.card }]}>
-          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Bedrooms</Text>
+        <View style={[styles.filterCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+          <AppText variant="title" weight="bold" style={[styles.sectionTitle, { color: themeColors.text }]}>Bedrooms</AppText>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.chipGrid}>
-              {Array.from({ length: 20 }, (_, i) => String(i + 1)).concat(['20+']).map((num) => {
-                const isActive = filters.bedrooms === num.replace('+', '');
+            <View style={styles.filterRowScroll}>
+              {['ALL', ...Array.from({ length: 20 }, (_, i) => String(i + 1))].map((num) => {
+                const isActive = filters.bedrooms === (num === 'ALL' ? '' : num);
                 return (
                   <TouchableOpacity
-                    key={num}
+                    key={`beds-${num}`}
                     style={[
-                      styles.filterChip, 
+                      styles.filterChipRound,
                       { 
-                        backgroundColor: isActive ? themeColors.primary : themeColors.background,
+                        backgroundColor: isActive ? themeColors.primary + '15' : themeColors.background,
                         borderColor: isActive ? themeColors.primary : themeColors.border
                       }
                     ]}
-                    onPress={() => updateFilter('bedrooms', isActive ? '' : num.replace('+', ''))}
+                    onPress={() => updateFilter('bedrooms', isActive ? '' : (num === 'ALL' ? '' : num))}
                     activeOpacity={0.7}
                   >
-                    <Text style={[
+                    <AppText variant="tiny" weight="bold" style={[
                       styles.filterChipText, 
-                      { color: isActive ? '#fff' : themeColors.text }
-                    ]}>{num}</Text>
+                      { color: isActive ? themeColors.primary : themeColors.subtext }
+                    ]}>{num === 'ALL' ? 'All' : num}</AppText>
                   </TouchableOpacity>
                 );
               })}
@@ -618,29 +687,29 @@ const FiltersScreen = observer(() => {
           </ScrollView>
         </View>
 
-        <View style={[styles.filterCard, { backgroundColor: themeColors.card }]}>
-          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Bathrooms</Text>
+        <View style={[styles.filterCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+          <AppText variant="title" weight="bold" style={[styles.sectionTitle, { color: themeColors.text }]}>Bathrooms</AppText>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.chipGrid}>
-              {Array.from({ length: 20 }, (_, i) => String(i + 1)).concat(['20+']).map((num) => {
-                const isActive = filters.bathrooms === num.replace('+', '');
+            <View style={styles.filterRowScroll}>
+              {['ALL', ...Array.from({ length: 20 }, (_, i) => String(i + 1))].map((num) => {
+                const isActive = filters.bathrooms === (num === 'ALL' ? '' : num);
                 return (
                   <TouchableOpacity
-                    key={num}
+                    key={`baths-${num}`}
                     style={[
-                      styles.filterChip, 
+                      styles.filterChipRound,
                       { 
-                        backgroundColor: isActive ? themeColors.primary : themeColors.background,
+                        backgroundColor: isActive ? themeColors.primary + '15' : themeColors.background,
                         borderColor: isActive ? themeColors.primary : themeColors.border
                       }
                     ]}
-                    onPress={() => updateFilter('bathrooms', isActive ? '' : num.replace('+', ''))}
+                    onPress={() => updateFilter('bathrooms', isActive ? '' : (num === 'ALL' ? '' : num))}
                     activeOpacity={0.7}
                   >
-                    <Text style={[
+                    <AppText variant="tiny" weight="bold" style={[
                       styles.filterChipText, 
-                      { color: isActive ? '#fff' : themeColors.text }
-                    ]}>{num}</Text>
+                      { color: isActive ? themeColors.primary : themeColors.subtext }
+                    ]}>{num === 'ALL' ? 'All' : num}</AppText>
                   </TouchableOpacity>
                 );
               })}
@@ -649,8 +718,8 @@ const FiltersScreen = observer(() => {
         </View>
 
         {agents.filter((agent: any) => agent.role !== 'admin').length > 0 && (
-          <View style={[styles.filterCard, { backgroundColor: themeColors.card }]}>
-            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Agent</Text>
+          <View style={[styles.filterCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+            <AppText variant="title" weight="bold" style={[styles.sectionTitle, { color: themeColors.text }]}>Agent</AppText>
             <View style={styles.chipGrid}>
               {agents.filter((agent: any) => agent.role !== 'admin').map((agent: any) => {
                 const isActive = filters.agent_id === String(agent.user_id);
@@ -660,17 +729,17 @@ const FiltersScreen = observer(() => {
                     style={[
                       styles.filterChip, 
                       { 
-                        backgroundColor: isActive ? themeColors.primary : themeColors.background,
+                        backgroundColor: isActive ? themeColors.primary + '15' : themeColors.background,
                         borderColor: isActive ? themeColors.primary : themeColors.border
                       }
                     ]}
                     onPress={() => updateFilter('agent_id', isActive ? '' : String(agent.user_id))}
                     activeOpacity={0.7}
                   >
-                    <Text style={[
+                    <AppText variant="tiny" weight="bold" style={[
                       styles.filterChipText, 
-                      { color: isActive ? '#fff' : themeColors.text }
-                    ]}>{agent.full_name}</Text>
+                      { color: isActive ? themeColors.primary : themeColors.subtext }
+                    ]}>{agent.full_name}</AppText>
                   </TouchableOpacity>
                 );
               })}
@@ -678,8 +747,8 @@ const FiltersScreen = observer(() => {
           </View>
         )}
 
-        <View style={[styles.filterCard, { backgroundColor: themeColors.card }]}>
-          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Amenities</Text>
+        <View style={[styles.filterCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+          <AppText variant="title" weight="bold" style={[styles.sectionTitle, { color: themeColors.text }]}>Amenities</AppText>
           <View style={styles.chipGrid}>
             {[
               'Parking', 'Security Guard', 'Central Heating System', 'Cupboards',
@@ -693,7 +762,7 @@ const FiltersScreen = observer(() => {
                   style={[
                     styles.filterChip,
                     {
-                      backgroundColor: isActive ? themeColors.primary : themeColors.background,
+                      backgroundColor: isActive ? themeColors.primary + '15' : themeColors.background,
                       borderColor: isActive ? themeColors.primary : themeColors.border
                     }
                   ]}
@@ -707,10 +776,10 @@ const FiltersScreen = observer(() => {
                   }}
                   activeOpacity={0.7}
                 >
-                  <Text style={[
+                  <AppText variant="tiny" weight="bold" style={[
                     styles.filterChipText,
-                    { color: isActive ? '#fff' : themeColors.text }
-                  ]}>{amenity}</Text>
+                    { color: isActive ? themeColors.primary : themeColors.subtext }
+                  ]}>{amenity}</AppText>
                 </TouchableOpacity>
               );
             })}
@@ -732,18 +801,18 @@ const FiltersScreen = observer(() => {
           {searching ? (
             <>
               <ActivityIndicator size="small" color="#fff" />
-              <Text style={styles.applyBtnText}>Searching...</Text>
+              <AppText style={styles.applyBtnText}>Searching...</AppText>
             </>
           ) : (
             <>
               <Ionicons name="search" size={20} color="#fff" />
-              <Text style={styles.applyBtnText}>
+              <AppText style={styles.applyBtnText}>
                 Search Properties
                 {hasActiveFilters() && ` (${Object.entries(filters).filter(([key, value]) => {
                   if (key === 'amenities') return Array.isArray(value) && value.length > 0;
                   return value !== '' && value !== 'USD';
                 }).length})`}
-              </Text>
+              </AppText>
             </>
           )}
         </TouchableOpacity>
@@ -787,20 +856,19 @@ const styles = StyleSheet.create({
   filterCard: {
     marginHorizontal: 16,
     marginTop: 12,
-    padding: 14,
-    borderRadius: 14,
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
   },
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '800',
     marginBottom: 12,
     letterSpacing: -0.3,
   },
-  subLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 8,
-    marginTop: 6,
+  filterLabel: {
+    marginBottom: 6,
+    letterSpacing: 0.5,
   },
   searchInput: {
     flexDirection: 'row',
@@ -827,14 +895,32 @@ const styles = StyleSheet.create({
   },
   filterChip: {
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
+    paddingVertical: 6,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: 'transparent',
   },
   filterChipText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  filterRowWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  filterRowScroll: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingRight: 8,
+  },
+  filterChipRound: {
+    borderWidth: 1,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   currencyToggle: {
     flexDirection: 'row',
@@ -843,15 +929,15 @@ const styles = StyleSheet.create({
   },
   currencyButton: {
     flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    borderWidth: 1.5,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1.2,
     alignItems: 'center',
     justifyContent: 'center',
   },
   currencyText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
   },
   sliderWrapper: {
@@ -871,13 +957,13 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   sliderTrackBase: {
-    height: 4,
-    borderRadius: 2,
+    height: 6,
+    borderRadius: 999,
     position: 'relative',
   },
   sliderTrackHighlight: {
     height: '100%',
-    borderRadius: 2,
+    borderRadius: 999,
     position: 'absolute',
   },
   sliderThumbHitArea: {
@@ -890,10 +976,10 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   sliderThumb: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2.5,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
   },
   sliderLabels: {
     flexDirection: 'row',
@@ -903,6 +989,27 @@ const styles = StyleSheet.create({
   priceLabelValue: {
     fontSize: 12,
     fontWeight: '800',
+  },
+  priceInputRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 10,
+  },
+  priceInputWrap: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  priceInputLabel: {
+    marginBottom: 4,
+    letterSpacing: 0.5,
+  },
+  priceInputField: {
+    fontSize: 14,
+    fontWeight: '700',
+    padding: 0,
   },
   centered: {
     paddingVertical: 20,

@@ -4,6 +4,7 @@ import { observer } from 'mobx-react-lite';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import propertyStore from '../../../stores/PropertyStore';
+import { propertyService } from '../../../services/property.service';
 import authStore from '../../../stores/AuthStore';
 import PropertyCard from '../../../components/PropertyCard';
 import { personService } from '../../../services/person.service';
@@ -136,6 +137,7 @@ const PropertiesScreen = observer(() => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [inheritedChildren, setInheritedChildren] = useState<any[]>([]);
   
   const [filters, setFilters] = useState({
     city: (params.city as string) || '',
@@ -274,6 +276,69 @@ const PropertiesScreen = observer(() => {
       );
       
       await propertyStore.searchProperties(cleanFilters, isLoadMore);
+
+      const hasLocationFilter = !!(filters.province_id || filters.district_id || filters.area_id);
+      const isContainerTab = ['tower', 'market', 'sharak'].includes(activeTab);
+      const allowsListings = !isContainerTab;
+      const shouldIncludeInheritedChildren = !isLoadMore && hasLocationFilter && allowsListings;
+
+      if (!shouldIncludeInheritedChildren) {
+        setInheritedChildren([]);
+        return;
+      }
+
+      const parentQuery: any = {
+        province_id: filters.province_id || undefined,
+        district_id: filters.district_id || undefined,
+        area_id: filters.area_id || undefined,
+        record_kind: 'container',
+        status: 'active',
+        limit: 20,
+        offset: 0,
+      };
+
+      const parentRes = await propertyService.searchProperties(parentQuery);
+      const parents = parentRes?.data || [];
+
+      if (!parents.length) {
+        setInheritedChildren([]);
+        return;
+      }
+
+      const childLists = await Promise.all(
+        parents.slice(0, 20).map((p: any) => propertyService.getPublicPropertyChildren(p.property_id))
+      );
+      const children = childLists
+        .flatMap((r: any) => r?.data || [])
+        .filter(Boolean);
+
+      const matchesActiveTab = (item: any) => {
+        if (activeTab === 'all') return true;
+        if (['house', 'apartment', 'land', 'shop'].includes(activeTab)) {
+          return String(item.property_type || '').toLowerCase() === activeTab;
+        }
+        return true;
+      };
+
+      const matchesPurpose = (item: any) => {
+        if (filters.purpose === 'sale') {
+          return !!item.is_available_for_sale || !!item.forSale || !!item.for_sale || !!item.isAvailableForSale;
+        }
+        if (filters.purpose === 'rent') {
+          return !!item.is_available_for_rent || !!item.forRent || !!item.for_rent || !!item.isAvailableForRent;
+        }
+        return true;
+      };
+
+      const matchesOtherFilters = (item: any) => {
+        if (filters.bedrooms && Number(item.bedrooms) !== Number(filters.bedrooms)) return false;
+        if (filters.bathrooms && Number(item.bathrooms) !== Number(filters.bathrooms)) return false;
+        if (filters.agent_id && String(item.agent_id) !== String(filters.agent_id)) return false;
+        return true;
+      };
+
+      const filteredChildren = children.filter((c: any) => matchesActiveTab(c) && matchesPurpose(c) && matchesOtherFilters(c));
+      setInheritedChildren(filteredChildren);
     } catch (error) {
       console.error('Search failed', error);
     } finally {
@@ -330,6 +395,7 @@ const PropertiesScreen = observer(() => {
   const clearFilters = () => {
     setSearchQuery('');
     setActiveTab('all');
+    setInheritedChildren([]);
     setFilters({
       city: '',
       province_id: '',
@@ -387,7 +453,15 @@ const PropertiesScreen = observer(() => {
            filters.agent_id !== '';
   };
 
-  const filteredCount = propertyStore.properties.length;
+  const displayProperties = useMemo(() => {
+    const base = propertyStore.properties || [];
+    if (!inheritedChildren.length) return base;
+    const seen = new Set(base.map((p: any) => p?.property_id));
+    const extra = inheritedChildren.filter((p: any) => !seen.has(p?.property_id));
+    return [...base, ...extra];
+  }, [propertyStore.properties, inheritedChildren]);
+
+  const filteredCount = displayProperties.length;
   const filteredCountLabel = `${filteredCount} ${filteredCount === 1 ? 'property' : 'properties'} found`;
 
   return (
@@ -406,7 +480,7 @@ const PropertiesScreen = observer(() => {
       )}
 
       <FlatList
-          data={propertyStore.properties}
+          data={displayProperties}
           ListHeaderComponent={
             <View style={styles.listHeader}>
               <View
@@ -565,7 +639,7 @@ const PropertiesScreen = observer(() => {
                 </Text>
               </View>
 
-              {propertyStore.loading && propertyStore.properties.length > 0 && (
+              {propertyStore.loading && displayProperties.length > 0 && (
                 <View style={styles.listInlineLoader}>
                   <ActivityIndicator size="small" color={themeColors.primary} />
                   <Text style={[styles.inlineLoaderText, { color: themeColors.subtext }]}>
@@ -602,7 +676,7 @@ const PropertiesScreen = observer(() => {
           onEndReachedThreshold={0.5}
           ListFooterComponent={renderFooter}
           ListEmptyComponent={
-            propertyStore.loading && propertyStore.properties.length === 0 ? (
+            propertyStore.loading && displayProperties.length === 0 ? (
               <View style={styles.center}>
                 <ActivityIndicator size="large" color={themeColors.primary} />
                 <Text style={[styles.loadingText, { color: themeColors.subtext, marginTop: 16 }]}>Loading properties...</Text>

@@ -3,7 +3,7 @@ const { Property, Deal, User, Person, Province, District, Area } = require('../m
 const { sequelize } = require('../config/db');
 const { Op } = require('sequelize');
 const path = require('path');
-const PERMISSIONS = require('../constants/permissions');
+const { PERMISSIONS } = require('../constants/permissions');
 
 // Helper to check permissions
 const hasPermission = (user, permission) => {
@@ -389,9 +389,32 @@ const searchProperties = async (req, res) => {
       andCriteria.push({ is_available_for_rent: true });
     }
     if (agent_id) andCriteria.push({ agent_id });
-    if (province_id) andCriteria.push({ province_id });
-    if (district_id) andCriteria.push({ district_id });
-    if (area_id) andCriteria.push({ area_id });
+    // Location filtering should also match listings that inherit location from a parent container.
+    // For child units, parent.* location may be populated while child.* may be empty.
+    if (province_id || district_id || area_id) {
+      const ownLocationMatch = {};
+      const parentLocationMatch = {};
+
+      if (province_id) {
+        ownLocationMatch.province_id = province_id;
+        parentLocationMatch['$Parent.province_id$'] = province_id;
+      }
+      if (district_id) {
+        ownLocationMatch.district_id = district_id;
+        parentLocationMatch['$Parent.district_id$'] = district_id;
+      }
+      if (area_id) {
+        ownLocationMatch.area_id = area_id;
+        parentLocationMatch['$Parent.area_id$'] = area_id;
+      }
+
+      andCriteria.push({
+        [Op.or]: [
+          ownLocationMatch,
+          parentLocationMatch
+        ]
+      });
+    }
     
     if (bedrooms) {
       if (bedrooms === '5') {

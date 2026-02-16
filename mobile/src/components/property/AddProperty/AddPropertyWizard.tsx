@@ -151,11 +151,26 @@ const WizardInner = observer(({ onFinish, isEditing, propertyId, currentStep, se
         return isNaN(num) ? null : num;
       };
 
+      let inheritedLocation: any = null;
+      if (isChild && parentPropertyId) {
+        try {
+          const parent = await propertyStore.fetchParentById(parentPropertyId);
+          inheritedLocation = parent || null;
+        } catch (err) {
+          console.warn('Failed to inherit parent location for child listing', err);
+        }
+      }
+
+      const prefer = (childVal: any, parentVal: any) => {
+        if (childVal === null || childVal === undefined || childVal === '') return parentVal;
+        return childVal;
+      };
+
       const payload = {
         ...values,
         details,
         record_kind: isContainer ? 'container' : 'listing',
-        property_category: finalCategory,
+        property_category: (isContainer || isChild) ? finalCategory : undefined,
         is_parent: isContainer, // true for containers, false for listings (child or standalone)
         parent_property_id: parentPropertyId || null,
         parent_id: parentPropertyId || null,
@@ -168,13 +183,13 @@ const WizardInner = observer(({ onFinish, isEditing, propertyId, currentStep, se
         rent_price: isContainer ? null : (values.for_rent ? sanitizeInt(values.rent_price) : null),
         is_available_for_sale: isContainer ? false : !!values.for_sale,
         is_available_for_rent: isContainer ? false : !!values.for_rent,
-        address: values.address || values.location || '',
-        location: values.location || values.address || '',
-        latitude: values.latitude || null,
-        longitude: values.longitude || null,
-        province_id: sanitizeInt(values.province_id),
-        district_id: sanitizeInt(values.district_id),
-        area_id: sanitizeInt(values.area_id),
+        address: prefer(values.address, inheritedLocation?.address) || prefer(values.location, inheritedLocation?.location) || '',
+        location: prefer(values.location, inheritedLocation?.location) || prefer(values.address, inheritedLocation?.address) || '',
+        latitude: prefer(values.latitude, inheritedLocation?.latitude) || null,
+        longitude: prefer(values.longitude, inheritedLocation?.longitude) || null,
+        province_id: sanitizeInt(prefer(values.province_id, inheritedLocation?.province_id)),
+        district_id: sanitizeInt(prefer(values.district_id, inheritedLocation?.district_id)),
+        area_id: sanitizeInt(prefer(values.area_id, inheritedLocation?.area_id)),
         agent_id: sanitizeInt(values.agent_id),
         owner_person_id: sanitizeInt(values.owner_person_id),
         owner_name: values.owner_name || null,

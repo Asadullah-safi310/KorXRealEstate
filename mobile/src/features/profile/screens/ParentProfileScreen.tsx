@@ -20,12 +20,15 @@ import { useThemeColor } from '../../../hooks/useThemeColor';
 import parentStore from '../../../stores/ParentStore';
 import authStore from '../../../stores/AuthStore';
 import PropertyCard from '../../../components/PropertyCard';
+import Avatar from '../../../components/Avatar';
 import { getImageUrl } from '../../../utils/mediaUtils';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import ScreenLayout from '../../../components/ScreenLayout';
 import { AMENITY_ICONS } from '../../../constants/Amenities';
 import { BlurView } from 'expo-blur';
+import { Alert } from 'react-native';
+import { userService } from '../../../services/user.service';
 
 // Safe import for react-native-maps
 let MapView: any;
@@ -53,6 +56,7 @@ const ParentProfileScreen = observer(() => {
   const [activeTab, setActiveTab] = useState<'features' | 'available' | 'allProperties'>('features');
   const [selectedType, setSelectedType] = useState<string>('ALL');
   const [selectedBeds, setSelectedBeds] = useState<string>('ALL');
+  const [agentProfile, setAgentProfile] = useState<any>(null);
 
   const parentId = Number(id);
   const category = Array.isArray(categoryParam) ? categoryParam[0] : categoryParam;
@@ -79,42 +83,6 @@ const ParentProfileScreen = observer(() => {
     }, [fetchData])
   );
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchData();
-    setRefreshing(false);
-  };
-
-  const getAddUnitText = () => {
-    const cat = category?.toLowerCase() || '';
-    switch (cat) {
-      case 'market': return 'Add Shop/Office';
-      case 'sharak': return 'Add Apartment/Shop/Office/Land/Plot/House';
-      case 'tower': 
-      case 'apartment': return 'Add Apartment/Shop/Office';
-      default: return 'Add Unit';
-    }
-  };
-
-  const getFilterTypes = () => {
-    const cat = category?.toLowerCase() || '';
-    switch (cat) {
-      case 'market': return ['ALL', 'SHOP', 'OFFICE'];
-      case 'sharak': return ['ALL', 'APARTMENT', 'SHOP', 'OFFICE', 'LAND', 'HOUSE'];
-      case 'tower': 
-      case 'apartment': return ['ALL', 'APARTMENT', 'SHOP', 'OFFICE'];
-      default: return ['ALL'];
-    }
-  };
-
-  if (parentStore.loading && !parentStore.currentParent) {
-    return (
-      <View style={[styles.centered, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={theme.primary} />
-      </View>
-    );
-  }
-
   const parent = parentStore.currentParent;
   const units = parentStore.children;
   const currentUser = authStore.user as any;
@@ -128,6 +96,24 @@ const ParentProfileScreen = observer(() => {
   const canViewAllProperties = !!isAgentUser && (isParentCreator || isParentListingAgent);
 
   const parentAgentId = parent?.agent_id || parent?.created_by_user_id;
+
+  useEffect(() => {
+    const loadAgentProfile = async () => {
+      if (!parentAgentId) {
+        setAgentProfile(null);
+        return;
+      }
+      try {
+        const res = await userService.getPublicProfile(String(parentAgentId));
+        setAgentProfile(res.data);
+      } catch (err) {
+        console.error('Failed to load agent public profile', err);
+        setAgentProfile(null);
+      }
+    };
+
+    loadAgentProfile();
+  }, [parentAgentId]);
   const agentAddedUnits = units.filter((u) => {
     const unitAgentId = u?.agent_id || u?.created_by_user_id;
     return !!parentAgentId && String(unitAgentId) === String(parentAgentId);
@@ -169,6 +155,42 @@ const ParentProfileScreen = observer(() => {
     }
   }, [canViewAllProperties, activeTab]);
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchData();
+    setRefreshing(false);
+  };
+
+  const getAddUnitText = () => {
+    const cat = category?.toLowerCase() || '';
+    switch (cat) {
+      case 'market': return 'Add Shop/Office';
+      case 'sharak': return 'Add Apartment/Shop/Office/Land/Plot/House';
+      case 'tower': 
+      case 'apartment': return 'Add Apartment/Shop/Office';
+      default: return 'Add Unit';
+    }
+  };
+
+  const getFilterTypes = () => {
+    const cat = category?.toLowerCase() || '';
+    switch (cat) {
+      case 'market': return ['ALL', 'SHOP', 'OFFICE'];
+      case 'sharak': return ['ALL', 'APARTMENT', 'SHOP', 'OFFICE', 'LAND', 'HOUSE'];
+      case 'tower': 
+      case 'apartment': return ['ALL', 'APARTMENT', 'SHOP', 'OFFICE'];
+      default: return ['ALL'];
+    }
+  };
+
+  if (parentStore.loading && !parentStore.currentParent) {
+    return (
+      <View style={[styles.centered, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
+  }
+
   if (!parent) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.background }]}>
@@ -181,6 +203,90 @@ const ParentProfileScreen = observer(() => {
   }
 
   const isOwner = authStore.user?.user_id === parent.created_by_user_id || authStore.isAdmin;
+  
+  const normalizeListingUser = (user: any) => {
+    if (!user) return null;
+    const nestedUser = user.User || user.user || user.profile;
+    return {
+      ...user,
+      ...nestedUser,
+      full_name:
+        user.full_name ||
+        user.fullName ||
+        user.name ||
+        nestedUser?.full_name ||
+        nestedUser?.fullName ||
+        nestedUser?.name,
+      profile_picture:
+        user.profile_picture ||
+        user.profilePicture ||
+        user.profile_image ||
+        user.avatar ||
+        user.photo ||
+        nestedUser?.profile_picture ||
+        nestedUser?.profilePicture ||
+        nestedUser?.profile_image ||
+        nestedUser?.avatar ||
+        nestedUser?.photo,
+      user_id: user.user_id || user.userId || nestedUser?.user_id || nestedUser?.userId,
+      person_id: user.person_id || user.personId || nestedUser?.person_id || nestedUser?.personId,
+      phone: user.phone || nestedUser?.phone,
+      email: user.email || nestedUser?.email,
+    };
+  };
+
+  const listingUser = normalizeListingUser(agentProfile || parent.Creator || parent.Agent);
+
+  // Debug logging
+  console.log('=== PARENT DATA ===');
+  console.log('Parent object:', JSON.stringify(parent, null, 2));
+  console.log('Creator:', parent.Creator);
+  console.log('Agent:', parent.Agent);
+  console.log('listingUser:', listingUser);
+  if (listingUser) {
+    console.log('listingUser.user_id:', listingUser.user_id);
+    console.log('listingUser.full_name:', listingUser.full_name);
+    console.log('listingUser.profile_picture:', listingUser.profile_picture);
+  }
+
+  const handleWhatsApp = (user: any) => {
+    if (!user) {
+      console.log('handleWhatsApp: No user provided');
+      return;
+    }
+    console.log('handleWhatsApp called with:', user);
+    const phone = user.phone;
+    const message = `Hello, I'm interested in the ${parent.title || parent.property_category}`;
+    const url = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(message)}`;
+    Linking.canOpenURL(url).then(supported => {
+      if (supported) {
+        Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'WhatsApp is not installed on your device');
+      }
+    });
+  };
+
+  const handleProfilePress = (user: any) => {
+    console.log('handleProfilePress called with:', user);
+    if (!user) {
+      console.log('handleProfilePress: No user provided');
+      return;
+    }
+    if (user.user_id) {
+      console.log('Navigating to: /person/user_' + user.user_id);
+      router.push(`/person/user_${user.user_id}`);
+    } else if (parentAgentId) {
+      console.log('Navigating to: /person/user_' + parentAgentId);
+      router.push(`/person/user_${parentAgentId}`);
+    } else if (user.person_id || user.id) {
+      const personId = user.person_id || user.id;
+      console.log('Navigating to: /person/' + personId);
+      router.push(`/person/${personId}`);
+    } else {
+      console.log('handleProfilePress: No user_id or id found');
+    }
+  };
 
   const parseAmenities = (data: any): string[] => {
     if (Array.isArray(data)) return data;
@@ -192,6 +298,17 @@ const ParentProfileScreen = observer(() => {
       }
     }
     return [];
+  };
+
+  const buildParentAddress = () => {
+    const street = parent.address || parent.location;
+    const area = parent.AreaData?.name || parent.area?.name || parent.area_name;
+    const city = parent.DistrictData?.name || parent.city;
+    const province = parent.ProvinceData?.name || parent.province_name;
+
+    const parts = street ? [street, area, city, province] : [area, city, province];
+    const formatted = parts.filter(Boolean).join(', ');
+    return formatted || 'Location not specified';
   };
 
   const renderFacility = (label: string) => {
@@ -271,7 +388,7 @@ const ParentProfileScreen = observer(() => {
             <View style={styles.locationRow}>
               <Ionicons name="location" size={16} color={theme.primary} />
               <AppText variant="body" color={theme.subtext} style={{ marginLeft: 4 }}>
-                {parent.address}, {parent.DistrictData?.name}, {parent.ProvinceData?.name}
+                {buildParentAddress()}
               </AppText>
             </View>
           </View>
@@ -361,7 +478,7 @@ const ParentProfileScreen = observer(() => {
                     </TouchableOpacity>
                   </View>
                   <AppText variant="small" weight="medium" color={theme.subtext} style={{ marginBottom: 16 }}>
-                    {[parent.address, parent.AreaData?.name, parent.DistrictData?.name, parent.ProvinceData?.name].filter(Boolean).join(', ')}
+                    {buildParentAddress()}
                   </AppText>
                   
                   <TouchableOpacity 
@@ -418,6 +535,55 @@ const ParentProfileScreen = observer(() => {
                         <AppText variant="small" color={theme.subtext}>Map location available</AppText>
                       </View>
                     )}
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* Agent Information Card */}
+              {listingUser && (
+                <View style={styles.section}>
+                  <AppText variant="h3" weight="bold" color={theme.text} style={styles.sectionTitle}>Agent Information</AppText>
+                  <TouchableOpacity 
+                    style={[styles.agentCard, { backgroundColor: theme.card, borderColor: theme.border }]}
+                    activeOpacity={0.7}
+                    onPress={() => handleProfilePress(listingUser)}
+                  >
+                    <View style={styles.agentInfoRow}>
+                      <View style={styles.agentMainInfo}>
+                        <Avatar user={listingUser} size="md" />
+                        <View style={{ marginLeft: 12, flex: 1 }}>
+                          <AppText variant="body" weight="bold" color={theme.text}>
+                            {listingUser?.full_name || 'Agent Name'}
+                          </AppText>
+                          <AppText variant="caption" color={theme.subtext}>
+                            Tap to view profile
+                          </AppText>
+                        </View>
+                      </View>
+                      <View style={styles.agentActionButtons}>
+                        <TouchableOpacity 
+                          style={[styles.messageIcon, { backgroundColor: '#25D366', marginRight: 8 }]}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleWhatsApp(listingUser);
+                          }}
+                        >
+                          <Ionicons name="logo-whatsapp" size={18} color="#fff" />
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={[styles.messageIcon, { backgroundColor: '#1e293b' }]}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            const email = listingUser?.email;
+                            if (email) {
+                              Linking.openURL(`mailto:${email}?subject=Inquiry: ${parent.title}`);
+                            }
+                          }}
+                        >
+                          <Ionicons name="mail" size={18} color="#fff" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
                   </TouchableOpacity>
                 </View>
               )}
@@ -575,6 +741,42 @@ const styles = StyleSheet.create({
   mapOverlay: { position: 'absolute', bottom: 16, left: 16 },
   mapOverlayBlur: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, flexDirection: 'row', alignItems: 'center', overflow: 'hidden' },
   markerContainer: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
+  agentCard: {
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  agentInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  agentMainInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  agentActionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  messageIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
   unitsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   homesSummaryCard: {
     borderWidth: 1,

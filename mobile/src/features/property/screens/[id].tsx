@@ -437,6 +437,17 @@ const PropertyDetailsScreen = observer(() => {
   const isContainer = property.record_kind === 'container';
   const isChild = property.parent_id != null;
 
+  const buildPropertyAddress = () => {
+    const street = property.address || property.location;
+    const area = property.AreaData?.name || property.area?.name || property.area_name;
+    const city = property.DistrictData?.name || property.city || property.district || property.district_name;
+    const province = property.ProvinceData?.name || property.province?.name || property.province_name;
+
+    const parts = street ? [street, area, city, province] : [area, city, province];
+    const formatted = parts.filter(Boolean).join(', ');
+    return formatted || 'Location not specified';
+  };
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.background }]}
@@ -583,7 +594,10 @@ const PropertyDetailsScreen = observer(() => {
             {property.Parent ? (
               <TouchableOpacity 
                 style={[styles.parentLink, { backgroundColor: theme.card, borderColor: theme.border }]}
-                onPress={() => router.push(`/property/${property.Parent.property_id}`)}
+                onPress={() => {
+                  const parentCategory = property.Parent.property_category || 'tower';
+                  router.push(`/parent/${parentCategory}/${property.Parent.property_id}`);
+                }}
               >
                 <Ionicons name="business-outline" size={20} color={primaryColor} />
                 <View style={{ marginLeft: 12, flex: 1 }}>
@@ -792,12 +806,7 @@ const PropertyDetailsScreen = observer(() => {
               </TouchableOpacity>
             </View>
             <AppText variant="small" weight="medium" color={theme.subtext} style={{ marginBottom: 16 }}>
-              {[
-                property.address,
-                property.AreaData?.name,
-                property.DistrictData?.name || property.district,
-                property.ProvinceData?.name || property.city,
-              ].filter(Boolean).join(', ')}
+              {buildPropertyAddress()}
             </AppText>
             
             <TouchableOpacity 
