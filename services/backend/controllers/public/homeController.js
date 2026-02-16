@@ -21,7 +21,6 @@ const getHomeContainers = async (req, res) => {
           'title',
           'photos',
           'city',
-          'total_units',
           'property_category',
           [
             sequelize.literal(`(
@@ -94,7 +93,7 @@ const getHomeContainers = async (req, res) => {
           city: pJson.DistrictData?.name || pJson.city,
           province: pJson.ProvinceData?.name,
           availableUnits: parseInt(pJson.availableUnits) || 0,
-          totalUnits: pJson.total_units || parseInt(pJson.childCount) || 0,
+          totalUnits: parseInt(pJson.childCount) || 0,
           forSaleUnits: parseInt(pJson.forSaleUnits) || 0,
           forRentUnits: parseInt(pJson.forRentUnits) || 0,
           category: pJson.property_category
