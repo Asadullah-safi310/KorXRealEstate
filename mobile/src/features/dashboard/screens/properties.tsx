@@ -596,7 +596,7 @@ const PropertiesScreen = observer(() => {
               >
                 {[
                   { name: 'All', type: 'all', value: 'all', icon: 'apps' },
-                  { name: 'Home', type: 'property_type', value: 'house', icon: 'home-variant-outline' },
+                  { name: 'House', type: 'property_type', value: 'house', icon: 'home-variant-outline' },
                   { name: 'Apartment', type: 'property_type', value: 'apartment', icon: 'office-building-outline' },
                   { name: 'Land', type: 'property_type', value: 'land', icon: 'map-outline' },
                   { name: 'Shop', type: 'property_type', value: 'shop', icon: 'store-outline' },

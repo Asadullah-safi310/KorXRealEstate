@@ -239,41 +239,64 @@ const PersonDetailsScreen = observer(() => {
       </View>
 
       {/* Profile Card */}
-      <View style={[styles.profileCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-        <View style={styles.avatarWrapper}>
-          <Avatar user={person} size="xl" />
-          <View style={[styles.onlineBadge, { backgroundColor: theme.success, borderColor: theme.card }]} />
+      <View style={[styles.premiumHeaderCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        <View style={styles.headerBackground}>
+          <View style={[styles.bgCircle, { backgroundColor: theme.primary + '08', top: -50, right: -50 }]} />
+          <View style={[styles.bgCircle, { backgroundColor: theme.primary + '05', bottom: -80, left: -20, width: 200, height: 200 }]} />
         </View>
-        <AppText variant="h1" weight="black" color={theme.text} style={styles.name}>{name}</AppText>
-        <View style={[styles.roleBadge, { backgroundColor: theme.primary + '15' }]}>
-          <MaterialCommunityIcons name={isUser ? "shield-check" : "account-circle"} size={14} color={theme.primary} />
-          <AppText variant="tiny" weight="black" color={theme.primary} style={styles.roleText}>{role.toUpperCase()}</AppText>
+
+        <View style={styles.profileMain}>
+          <View style={styles.avatarContainer}>
+            <Avatar user={person} size="xl" />
+            <View style={[styles.onlineBadge, { backgroundColor: theme.success, borderColor: theme.card }]} />
+          </View>
+
+          <View style={styles.profileInfo}>
+            <View style={styles.nameRow}>
+              <AppText variant="h2" weight="black" color={theme.text} style={styles.name}>{name}</AppText>
+              {isUser && <Ionicons name="checkmark-circle" size={18} color={theme.primary} style={{ marginLeft: 4 }} />}
+            </View>
+            <AppText variant="tiny" weight="black" color={theme.primary} style={styles.roleLabel}>
+              {role.toUpperCase()}
+            </AppText>
+
+            <View style={styles.contactChips}>
+              {person.email ? (
+                <View style={[styles.chip, { backgroundColor: theme.background }]}>
+                  <Ionicons name="mail" size={12} color={theme.subtext} />
+                  <AppText variant="tiny" weight="semiBold" color={theme.subtext} style={styles.chipText} numberOfLines={1}>
+                    {person.email}
+                  </AppText>
+                </View>
+              ) : null}
+            </View>
+          </View>
         </View>
-        
+
         {/* Quick Actions */}
         <View style={styles.actionRow}>
-          <TouchableOpacity 
-            onPress={() => handleCall(person.phone)} 
+          <TouchableOpacity
+            onPress={() => handleCall(person.phone)}
             disabled={!person.phone}
             style={[styles.actionBtn, { backgroundColor: theme.background, borderColor: theme.border }, !person.phone && styles.disabledBtn]}
           >
-            <Ionicons name="call" size={20} color={theme.primary} />
+            <Ionicons name="call" size={18} color={theme.primary} />
             <AppText variant="tiny" weight="bold" color={theme.text}>Call</AppText>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            onPress={() => handleEmail(person.email)} 
+
+          <TouchableOpacity
+            onPress={() => handleEmail(person.email)}
             disabled={!person.email}
             style={[styles.actionBtn, { backgroundColor: theme.background, borderColor: theme.border }, !person.email && styles.disabledBtn]}
           >
-            <Ionicons name="mail" size={20} color={theme.primary} />
+            <Ionicons name="mail" size={18} color={theme.primary} />
             <AppText variant="tiny" weight="bold" color={theme.text}>Email</AppText>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: theme.background, borderColor: theme.border }]}
           >
-            <Ionicons name="chatbubble-ellipses" size={20} color={theme.primary} />
+            <Ionicons name="chatbubble-ellipses" size={18} color={theme.primary} />
             <AppText variant="tiny" weight="bold" color={theme.text}>Chat</AppText>
           </TouchableOpacity>
         </View>
@@ -574,27 +597,48 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  profileCard: {
-    alignItems: 'center',
-    padding: 24,
+  premiumHeaderCard: {
     borderRadius: 32,
+    padding: 24,
     borderWidth: 1.5,
     marginBottom: 24,
+    overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.1,
+        shadowRadius: 20,
       },
       android: {
-        elevation: 3,
+        elevation: 8,
       },
     }),
   },
-  avatarWrapper: {
+  headerBackground: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+  },
+  bgCircle: {
+    position: 'absolute',
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+  },
+  profileMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatarContainer: {
     position: 'relative',
-    marginBottom: 16,
+  },
+  profileInfo: {
+    flex: 1,
+    marginLeft: 20,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   onlineBadge: {
     position: 'absolute',
@@ -606,34 +650,42 @@ const styles = StyleSheet.create({
     borderWidth: 3,
   },
   name: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '900',
     letterSpacing: -0.5,
-    textAlign: 'center',
   },
-  roleBadge: {
+  roleLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginTop: 4,
+  },
+  contactChips: {
+    flexDirection: 'row',
+    marginTop: 12,
+  },
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 16,
-    marginTop: 8,
+    borderRadius: 10,
     gap: 6,
+    maxWidth: '100%',
   },
-  roleText: {
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 0.5,
+  chipText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   actionRow: {
     flexDirection: 'row',
-    marginTop: 24,
+    marginTop: 18,
     gap: 12,
   },
   actionBtn: {
     flex: 1,
-    height: 70,
-    borderRadius: 24,
+    height: 60,
+    borderRadius: 18,
     borderWidth: 1.5,
     justifyContent: 'center',
     alignItems: 'center',

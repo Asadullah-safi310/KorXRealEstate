@@ -51,6 +51,7 @@ const PropertyCard = observer(({
   const currentTheme = useCurrentTheme();
   const router = useRouter();
   const [activeIndex, setActiveIndex] = useState(0);
+  const [isMediaMenuOpen, setIsMediaMenuOpen] = useState(false);
   
   const isFavorite = favoriteStore.isFavorite(property.property_id);
   const heartScale = useSharedValue(1);
@@ -66,6 +67,17 @@ const PropertyCard = observer(({
     );
     
     favoriteStore.toggleFavorite(property.property_id);
+    setIsMediaMenuOpen(false);
+  };
+
+  const handleCardPress = () => {
+    setIsMediaMenuOpen(false);
+    onPress();
+  };
+
+  const toggleMediaMenu = (e: any) => {
+    e.stopPropagation();
+    setIsMediaMenuOpen((prev) => !prev);
   };
   
   const cardAnimatedStyle = useAnimatedStyle(() => ({
@@ -152,6 +164,10 @@ const PropertyCard = observer(({
   };
   const dividerColor = currentTheme === 'dark' ? '#334155' : '#cbd5e1';
   const compactActionBg = currentTheme === 'dark' ? 'rgba(15,23,42,0.85)' : 'rgba(255,255,255,0.9)';
+  const saleTagBg = currentTheme === 'dark' ? 'rgba(30,64,175,0.26)' : '#eff6ff';
+  const rentTagBg = currentTheme === 'dark' ? 'rgba(6,95,70,0.28)' : '#ecfdf5';
+  const saleTagText = currentTheme === 'dark' ? '#dbeafe' : '#1e40af';
+  const rentTagText = currentTheme === 'dark' ? '#d1fae5' : '#065f46';
   const displayPrice = isContainer 
     ? (property.property_category ? property.property_category.charAt(0).toUpperCase() + property.property_category.slice(1) : 'Building')
     : getPropertyDisplayPrice(property);
@@ -273,7 +289,7 @@ const PropertyCard = observer(({
 
   const renderImageItem = ({ item }: { item: string }) => (
     <Pressable 
-      onPress={onPress}
+      onPress={handleCardPress}
       style={variant === 'compact' ? styles.compactImageContainer : styles.imageContainer}
     >
       <Image 
@@ -317,7 +333,7 @@ const PropertyCard = observer(({
         <Pressable
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
-          onPress={onPress}
+          onPress={handleCardPress}
         >
           <Animated.View 
             entering={FadeInDown.delay(index * 100).duration(500)}
@@ -346,15 +362,15 @@ const PropertyCard = observer(({
                 {/* Sale/Rent badges */}
                 <View style={styles.purposeBadgesContainer}>
                   {property.is_available_for_sale && (
-                    <View style={[styles.purposeBadge, { backgroundColor: 'rgba(0,0,0,0.65)' }]}>
-                      <Text style={{ color: themeColors.white, fontSize: 7, fontWeight: '600' }}>
+                    <View style={[styles.purposeBadge, { backgroundColor: saleTagBg }]}>
+                      <Text style={{ color: saleTagText, fontSize: 7, fontWeight: '600' }}>
                         SALE
                       </Text>
                     </View>
                   )}
                   {property.is_available_for_rent && (
-                    <View style={[styles.purposeBadge, { backgroundColor: 'rgba(0,0,0,0.65)', marginLeft: property.is_available_for_sale ? 4 : 0 }]}>
-                      <Text style={{ color: themeColors.white, fontSize: 7, fontWeight: '600' }}>
+                    <View style={[styles.purposeBadge, { backgroundColor: rentTagBg, marginLeft: property.is_available_for_sale ? 4 : 0 }]}>
+                      <Text style={{ color: rentTagText, fontSize: 7, fontWeight: '600' }}>
                         RENT
                       </Text>
                     </View>
@@ -439,16 +455,12 @@ const PropertyCard = observer(({
     const isSmallCompact = compactDensity === 'small';
     const displayPrice = getPropertyDisplayPrice(property);
     const typeLabel = property.property_type || 'Property';
-    const compactTagBg = isSmallCompact
-      ? (currentTheme === 'dark' ? '#e2e8f0' : '#f1f5f9')
-      : undefined;
-    const compactTagTextColor = isSmallCompact ? '#334155' : themeColors.white;
 
     return (
       <Pressable
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        onPress={onPress}
+        onPress={handleCardPress}
       >
         <Animated.View 
           entering={FadeInDown.delay(index * 100).duration(500)}
@@ -459,7 +471,7 @@ const PropertyCard = observer(({
           >
             <View style={[styles.compactMedia, isSmallCompact && styles.compactMediaSmall]}>
               {photos.length > 0 ? (
-                <Pressable onPress={onPress} style={[styles.compactImageContainer, isSmallCompact && styles.compactImageContainerSmall]}>
+                <Pressable onPress={handleCardPress} style={[styles.compactImageContainer, isSmallCompact && styles.compactImageContainerSmall]}>
                   <Image
                     source={{ uri: getImageUrl(photos[0]) || '' }}
                     style={styles.compactImage}
@@ -509,14 +521,14 @@ const PropertyCard = observer(({
                     style={[
                       styles.compactTag,
                       {
-                        backgroundColor: compactTagBg || themeColors.primary,
+                        backgroundColor: saleTagBg,
                         paddingHorizontal: isSmallCompact ? 5 : 8,
                         paddingVertical: isSmallCompact ? 1 : 4,
                         borderRadius: isSmallCompact ? 5 : 6,
                       },
                     ]}
                   >
-                    <AppText variant="tiny" weight="bold" color={compactTagTextColor} style={{ fontSize: isSmallCompact ? 8 : 11 }}>
+                    <AppText variant="tiny" weight="bold" color={saleTagText} style={{ fontSize: isSmallCompact ? 8 : 11 }}>
                       Sale
                     </AppText>
                   </View>
@@ -526,14 +538,14 @@ const PropertyCard = observer(({
                     style={[
                       styles.compactTag,
                       {
-                        backgroundColor: compactTagBg || themeColors.success,
+                        backgroundColor: rentTagBg,
                         paddingHorizontal: isSmallCompact ? 5 : 8,
                         paddingVertical: isSmallCompact ? 1 : 4,
                         borderRadius: isSmallCompact ? 5 : 6,
                       },
                     ]}
                   >
-                    <AppText variant="tiny" weight="bold" color={compactTagTextColor} style={{ fontSize: isSmallCompact ? 8 : 11 }}>
+                    <AppText variant="tiny" weight="bold" color={rentTagText} style={{ fontSize: isSmallCompact ? 8 : 11 }}>
                       Rent
                     </AppText>
                   </View>
@@ -544,28 +556,7 @@ const PropertyCard = observer(({
                 <>
                   <TouchableOpacity 
                     style={[
-                      styles.compactFavorite,
-                      {
-                        top: isSmallCompact ? 10 : 12,
-                        right: isSmallCompact ? 44 : 52,
-                        backgroundColor: compactActionBg,
-                        width: isSmallCompact ? 30 : 36,
-                        height: isSmallCompact ? 30 : 36,
-                        borderRadius: isSmallCompact ? 15 : 18,
-                      },
-                    ]}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      shareProperty(property);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="share-social-outline" size={isSmallCompact ? 15 : 18} color={themeColors.text} />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    style={[
-                      styles.compactFavorite,
+                      styles.moreMenuButton,
                       {
                         top: isSmallCompact ? 10 : 12,
                         right: isSmallCompact ? 10 : 12,
@@ -575,17 +566,55 @@ const PropertyCard = observer(({
                         borderRadius: isSmallCompact ? 15 : 18,
                       },
                     ]}
-                    onPress={toggleFavorite}
+                    onPress={toggleMediaMenu}
                     activeOpacity={0.7}
                   >
-                    <Animated.View style={heartAnimatedStyle}>
-                      <Ionicons
-                        name={isFavorite ? "heart" : "heart-outline"}
-                        size={isSmallCompact ? 15 : 18}
-                        color={isFavorite ? themeColors.danger : themeColors.text}
-                      />
-                    </Animated.View>
+                    <Ionicons name="ellipsis-vertical" size={isSmallCompact ? 15 : 18} color={themeColors.text} />
                   </TouchableOpacity>
+
+                  {isMediaMenuOpen && (
+                    <View
+                      style={[
+                        styles.mediaMenuPopover,
+                        {
+                          top: isSmallCompact ? 44 : 48,
+                          right: isSmallCompact ? 10 : 12,
+                          backgroundColor: themeColors.card,
+                          borderColor: themeColors.border,
+                        },
+                      ]}
+                    >
+                      <TouchableOpacity
+                        style={styles.mediaMenuItem}
+                        activeOpacity={0.8}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          shareProperty(property);
+                          setIsMediaMenuOpen(false);
+                        }}
+                      >
+                        <Ionicons name="share-social-outline" size={15} color={themeColors.text} />
+                        <AppText variant="tiny" weight="semiBold" color={themeColors.text} style={styles.mediaMenuLabel}>
+                          Share
+                        </AppText>
+                      </TouchableOpacity>
+
+                      <View style={[styles.mediaMenuDivider, { backgroundColor: themeColors.border }]} />
+
+                      <TouchableOpacity style={styles.mediaMenuItem} activeOpacity={0.8} onPress={toggleFavorite}>
+                        <Animated.View style={heartAnimatedStyle}>
+                          <Ionicons
+                            name={isFavorite ? "heart" : "heart-outline"}
+                            size={15}
+                            color={isFavorite ? themeColors.danger : themeColors.text}
+                          />
+                        </Animated.View>
+                        <AppText variant="tiny" weight="semiBold" color={themeColors.text} style={styles.mediaMenuLabel}>
+                          Favorite
+                        </AppText>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </>
               )}
             </View>
@@ -657,7 +686,7 @@ const PropertyCard = observer(({
             {isSmallCompact && (
               <View style={styles.smallCompactInfoOverlay}>
                 <View style={styles.smallCompactTopRow}>
-                  <AppText variant="tiny" weight="bold" color={themeColors.warning} numberOfLines={1} style={styles.smallCompactPrice}>
+                  <AppText variant="tiny" weight="bold" color={themeColors.primary} numberOfLines={1} style={styles.smallCompactPrice}>
                     {displayPrice}
                   </AppText>
                   {!isContainer && (
@@ -715,7 +744,7 @@ const PropertyCard = observer(({
     <Pressable
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      onPress={onPress}
+      onPress={handleCardPress}
     >
       <Animated.View 
         entering={FadeInDown.delay(index * 100).duration(500)}
@@ -763,37 +792,72 @@ const PropertyCard = observer(({
             
             <View style={[styles.badgeRow, { top: 12, left: 34 }]}>
               {isSale && (
-                <View style={[styles.statusTag, { backgroundColor: themeColors.primary }]}> 
-                  <AppText variant="tiny" weight="bold" color={themeColors.white}>Sale</AppText>
+                <View style={[styles.statusTag, { backgroundColor: saleTagBg }]}> 
+                  <AppText variant="tiny" weight="bold" color={saleTagText}>Sale</AppText>
                 </View>
               )}
               {isRent && (
-                <View style={[styles.statusTag, { backgroundColor: themeColors.success }]}> 
-                  <AppText variant="tiny" weight="bold" color={themeColors.white}>Rent</AppText>
+                <View style={[styles.statusTag, { backgroundColor: rentTagBg }]}> 
+                  <AppText variant="tiny" weight="bold" color={rentTagText}>Rent</AppText>
                 </View>
               )}
             </View>
 
-            <TouchableOpacity 
-              style={[styles.favoriteBtn, { top: 12, right: 56, backgroundColor: themeColors.card }]}
-              activeOpacity={0.8}
-              onPress={(e) => {
-                e.stopPropagation();
-                shareProperty(property);
-              }}
-            >
-              <Ionicons name="share-social-outline" size={18} color={themeColors.text} />
-            </TouchableOpacity>
+            {!hideMediaActions && (
+              <>
+                <TouchableOpacity
+                  style={[styles.moreMenuButton, { top: 12, right: 12, backgroundColor: themeColors.card }]}
+                  activeOpacity={0.8}
+                  onPress={toggleMediaMenu}
+                >
+                  <Ionicons name="ellipsis-vertical" size={18} color={themeColors.text} />
+                </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={[styles.favoriteBtn, { top: 12, right: 12, backgroundColor: themeColors.card }]}
-              activeOpacity={0.8}
-              onPress={toggleFavorite}
-            >
-              <Animated.View style={heartAnimatedStyle}>
-                <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={18} color={isFavorite ? themeColors.danger : themeColors.text} />
-              </Animated.View>
-            </TouchableOpacity>
+                {isMediaMenuOpen && (
+                  <View
+                    style={[
+                      styles.mediaMenuPopover,
+                      {
+                        top: 56,
+                        right: 12,
+                        backgroundColor: themeColors.card,
+                        borderColor: themeColors.border,
+                      },
+                    ]}
+                  >
+                    <TouchableOpacity
+                      style={styles.mediaMenuItem}
+                      activeOpacity={0.8}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        shareProperty(property);
+                        setIsMediaMenuOpen(false);
+                      }}
+                    >
+                      <Ionicons name="share-social-outline" size={16} color={themeColors.text} />
+                      <AppText variant="small" weight="semiBold" color={themeColors.text} style={styles.mediaMenuLabel}>
+                        Share
+                      </AppText>
+                    </TouchableOpacity>
+
+                    <View style={[styles.mediaMenuDivider, { backgroundColor: themeColors.border }]} />
+
+                    <TouchableOpacity style={styles.mediaMenuItem} activeOpacity={0.8} onPress={toggleFavorite}>
+                      <Animated.View style={heartAnimatedStyle}>
+                        <Ionicons
+                          name={isFavorite ? "heart" : "heart-outline"}
+                          size={16}
+                          color={isFavorite ? themeColors.danger : themeColors.text}
+                        />
+                      </Animated.View>
+                      <AppText variant="small" weight="semiBold" color={themeColors.text} style={styles.mediaMenuLabel}>
+                        Favorite
+                      </AppText>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
+            )}
           </View>
 
           {/* Info Section */}
@@ -803,7 +867,7 @@ const PropertyCard = observer(({
                 variant="h2" 
                 weight="bold" 
                 numberOfLines={1} 
-                color="#059669"
+                color={themeColors.primary}
                 style={{ fontSize: 14, letterSpacing: -0.2 }}
               > 
                 {displayPrice}
@@ -987,9 +1051,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.5,
   },
-  compactFavorite: {
+  moreMenuButton: {
     position: 'absolute',
-    top: 40,
+    top: 12,
     right: 12,
     width: 36,
     height: 36,
@@ -998,6 +1062,32 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 2,
+  },
+  mediaMenuPopover: {
+    position: 'absolute',
+    minWidth: 118,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 4,
+    zIndex: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  mediaMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  mediaMenuLabel: {
+    marginLeft: 8,
+  },
+  mediaMenuDivider: {
+    height: 1,
+    marginHorizontal: 8,
   },
   compactBody: {
     padding: 12,
@@ -1184,22 +1274,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 1,
-  },
-  favoriteBtn: {
-    position: 'absolute',
-    top: 44,
-    right: 16,
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    zIndex: 2,
   },
   infoSection: {
     padding: 18,
