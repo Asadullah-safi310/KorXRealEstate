@@ -217,6 +217,59 @@ const PropertyCard = observer(({
     addressParts.push(cityName);
   }
   const fullAddress = addressParts.length > 0 ? addressParts.join(', ') : 'Location not specified';
+  const normalizedPropertyType = String(property.property_type || '').toLowerCase();
+  const areaMetaValue = property.area_size ? String(property.area_size) : '-';
+
+  const getListingMetaItems = () => {
+    if (normalizedPropertyType === 'shop' || normalizedPropertyType === 'office') {
+      const floorValue = property.floor ? String(property.floor) : '-';
+      const unitValue = property.unit_number ? String(property.unit_number) : '-';
+      const hasUnitDetails = floorValue !== '-' || unitValue !== '-';
+
+      return [
+        {
+          provider: 'mci',
+          icon: 'layers-outline',
+          value: hasUnitDetails ? floorValue : areaMetaValue,
+        },
+        {
+          provider: 'ion',
+          icon: 'pricetag-outline',
+          value: hasUnitDetails ? unitValue : (normalizedPropertyType === 'office' ? 'Office' : 'Shop'),
+        },
+      ];
+    }
+
+    if (normalizedPropertyType === 'land' || normalizedPropertyType === 'plot') {
+      return [
+        {
+          provider: 'ion',
+          icon: 'scan-outline',
+          value: areaMetaValue,
+        },
+        {
+          provider: 'ion',
+          icon: 'map-outline',
+          value: normalizedPropertyType === 'plot' ? 'Plot' : 'Land',
+        },
+      ];
+    }
+
+    return [
+      {
+        provider: 'ion',
+        icon: 'bed-outline',
+        value: property.bedrooms || 0,
+      },
+      {
+        provider: 'mci',
+        icon: 'shower',
+        value: property.bathrooms || 0,
+      },
+    ];
+  };
+
+  const listingMetaItems = getListingMetaItems();
 
   const renderImageItem = ({ item }: { item: string }) => (
     <Pressable 
@@ -259,9 +312,6 @@ const PropertyCard = observer(({
 
   // Horizontal variant matching the attached image
   if (variant === 'horizontal') {
-    const bedLabel = property.bedrooms || 3;
-    const bathLabel = property.bathrooms || 2;
-
     return (
       <View style={styles.cardWrapper}>
         <Pressable
@@ -346,14 +396,16 @@ const PropertyCard = observer(({
                 <View style={[styles.horizontalBottomRow, { borderTopColor: dividerColor }]}>
                   {!isContainer ? (
                     <>
-                      <View style={[styles.horizontalMetaItemBadge, metaBadgeThemeStyle]}>
-                        <Ionicons name="bed-outline" size={11} color={themeColors.subtext} />
-                        <Text style={{ marginLeft: 3, fontSize: 9, fontWeight: '500', color: themeColors.text }}>{bedLabel}</Text>
-                      </View>
-                      <View style={[styles.horizontalMetaItemBadge, metaBadgeThemeStyle]}>
-                        <MaterialCommunityIcons name="shower" size={11} color={themeColors.subtext} />
-                        <Text style={{ marginLeft: 3, fontSize: 9, fontWeight: '500', color: themeColors.text }}>{bathLabel}</Text>
-                      </View>
+                      {listingMetaItems.map((item, metaIdx) => (
+                        <View key={`horizontal-meta-${metaIdx}`} style={[styles.horizontalMetaItemBadge, metaBadgeThemeStyle]}>
+                          {item.provider === 'mci' ? (
+                            <MaterialCommunityIcons name={item.icon as any} size={11} color={themeColors.subtext} />
+                          ) : (
+                            <Ionicons name={item.icon as any} size={11} color={themeColors.subtext} />
+                          )}
+                          <Text style={{ marginLeft: 3, fontSize: 9, fontWeight: '500', color: themeColors.text }}>{item.value}</Text>
+                        </View>
+                      ))}
                     </>
                   ) : (
                     <View style={[styles.horizontalMetaItemBadge, metaBadgeThemeStyle]}>
@@ -387,7 +439,6 @@ const PropertyCard = observer(({
     const isSmallCompact = compactDensity === 'small';
     const displayPrice = getPropertyDisplayPrice(property);
     const typeLabel = property.property_type || 'Property';
-    const bedLabel = property.bedrooms ?? '-';
     const compactTagBg = isSmallCompact
       ? (currentTheme === 'dark' ? '#e2e8f0' : '#f1f5f9')
       : undefined;
@@ -553,18 +604,18 @@ const PropertyCard = observer(({
                     </View>
                     {!isContainer && (
                       <View style={styles.compactBedsAndBaths}>
-                        <View style={[styles.compactMetaItemBadge, metaBadgeThemeStyle]}>
-                          <Ionicons name="bed-outline" size={13} color={themeColors.subtext} />
-                          <AppText variant="tiny" weight="medium" color={themeColors.text} style={{ marginLeft: 3, fontSize: 11 }}>
-                            {bedLabel}
-                          </AppText>
-                        </View>
-                        <View style={[styles.compactMetaItemBadge, metaBadgeThemeStyle]}>
-                          <MaterialCommunityIcons name="shower" size={13} color={themeColors.subtext} />
-                          <AppText variant="tiny" weight="medium" color={themeColors.text} style={{ marginLeft: 3, fontSize: 11 }}>
-                            {property.bathrooms || 0}
-                          </AppText>
-                        </View>
+                        {listingMetaItems.map((item, metaIdx) => (
+                          <View key={`compact-meta-${metaIdx}`} style={[styles.compactMetaItemBadge, metaBadgeThemeStyle]}>
+                            {item.provider === 'mci' ? (
+                              <MaterialCommunityIcons name={item.icon as any} size={13} color={themeColors.subtext} />
+                            ) : (
+                              <Ionicons name={item.icon as any} size={13} color={themeColors.subtext} />
+                            )}
+                            <AppText variant="tiny" weight="medium" color={themeColors.text} style={{ marginLeft: 3, fontSize: 11 }}>
+                              {item.value}
+                            </AppText>
+                          </View>
+                        ))}
                       </View>
                     )}
                     {isContainer && (
@@ -611,18 +662,18 @@ const PropertyCard = observer(({
                   </AppText>
                   {!isContainer && (
                     <View style={styles.smallCompactMetaRow}>
-                      <View style={styles.smallCompactMetaItem}>
-                        <Ionicons name="bed-outline" size={11} color={themeColors.white} />
-                        <AppText variant="tiny" weight="semiBold" color={themeColors.white} style={styles.smallCompactMetaText}>
-                          {bedLabel}
-                        </AppText>
-                      </View>
-                      <View style={styles.smallCompactMetaItem}>
-                        <MaterialCommunityIcons name="shower" size={11} color={themeColors.white} />
-                        <AppText variant="tiny" weight="semiBold" color={themeColors.white} style={styles.smallCompactMetaText}>
-                          {property.bathrooms || 0}
-                        </AppText>
-                      </View>
+                      {listingMetaItems.map((item, metaIdx) => (
+                        <View key={`small-compact-meta-${metaIdx}`} style={styles.smallCompactMetaItem}>
+                          {item.provider === 'mci' ? (
+                            <MaterialCommunityIcons name={item.icon as any} size={11} color={themeColors.white} />
+                          ) : (
+                            <Ionicons name={item.icon as any} size={11} color={themeColors.white} />
+                          )}
+                          <AppText variant="tiny" weight="semiBold" color={themeColors.white} style={styles.smallCompactMetaText}>
+                            {item.value}
+                          </AppText>
+                        </View>
+                      ))}
                     </View>
                   )}
                 </View>
@@ -783,18 +834,18 @@ const PropertyCard = observer(({
               </View>
               {!isContainer && (
                 <View style={styles.bedsAndBathsContainer}>
-                  <View style={[styles.bedsAndBathsItem, metaBadgeThemeStyle]}>
-                    <Ionicons name="bed-outline" size={13} color={themeColors.subtext} />
-                    <Text style={{ marginLeft: 3, fontSize: 11, fontWeight: '500', color: themeColors.text }}>
-                      {property.bedrooms || 0}
-                    </Text>
-                  </View>
-                  <View style={[styles.bedsAndBathsItem, metaBadgeThemeStyle]}>
-                    <MaterialCommunityIcons name="shower" size={13} color={themeColors.subtext} />
-                    <Text style={{ marginLeft: 3, fontSize: 11, fontWeight: '500', color: themeColors.text }}>
-                      {property.bathrooms || 0}
-                    </Text>
-                  </View>
+                  {listingMetaItems.map((item, metaIdx) => (
+                    <View key={`default-meta-${metaIdx}`} style={[styles.bedsAndBathsItem, metaBadgeThemeStyle]}>
+                      {item.provider === 'mci' ? (
+                        <MaterialCommunityIcons name={item.icon as any} size={13} color={themeColors.subtext} />
+                      ) : (
+                        <Ionicons name={item.icon as any} size={13} color={themeColors.subtext} />
+                      )}
+                      <Text style={{ marginLeft: 3, fontSize: 11, fontWeight: '500', color: themeColors.text }}>
+                        {item.value}
+                      </Text>
+                    </View>
+                  ))}
                 </View>
               )}
               {isContainer && (

@@ -45,7 +45,7 @@ import {
 } from '../../../utils/animations';
 
 const ALL_STEPS = [
-  { title: 'What are you adding?', component: StepOwnership },
+  { title: 'What are you adding?', component: StepOwnership, key: 'ownership' },
   { title: 'Basic Info', component: StepBasicInfo },
   { title: 'Property Details', component: StepPropertyDetails },
   { title: 'Media', component: StepMedia },
@@ -397,9 +397,14 @@ const AddPropertyWizard = observer(({ initial, isEditing, propertyId, onFinish, 
     !!values.parent_property_id ||
     !!values.parentId ||
     !!values.apartment_id;
+  const isParentContainerFlow =
+    !!isCreatingParent ||
+    !!values.is_parent ||
+    values.record_kind === 'container';
   
   // Filter steps based on context (e.g. skip pricing for containers)
   const steps = ALL_STEPS.filter(step => {
+    if (isParentContainerFlow && step.key === 'ownership') return false;
     if (values.is_parent && step.key === 'pricing') return false;
     if (isInheritedChildFlow && step.key === 'map-location') return false;
     return true;

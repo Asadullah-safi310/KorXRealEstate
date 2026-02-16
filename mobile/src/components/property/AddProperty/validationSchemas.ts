@@ -112,10 +112,16 @@ export const StepPropertyDetailsSchema = Yup.object().shape({
     is: true,
     then: (s) => s.required('Total floors is required').min(1),
   }),
-  planned_units: Yup.number().nullable().when('is_parent', {
-    is: true,
-    then: (s) => s.required('Planned units is required').min(1),
-  }),
+  planned_units: Yup.number()
+    .transform((value, originalValue) => {
+      if (originalValue === '' || originalValue === null || originalValue === undefined) return null;
+      return value;
+    })
+    .nullable()
+    .when('is_parent', {
+      is: true,
+      then: (s) => s.min(1, 'Planned units must be at least 1').nullable(),
+    }),
 });
 
 export const StepMediaSchema = Yup.object().shape({

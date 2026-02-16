@@ -30,18 +30,35 @@ const SUGGESTED_TITLES = [
   'Newly Renovated Home Ready to Move In',
 ];
 
-const StepBasicInfo = observer(() => {
+const StepBasicInfo = observer(({ isStandalone, isEditing, isCreatingParent }: any) => {
   const { values, setFieldValue, errors, touched } = useFormikContext<any>();
   const theme = useThemeColor();
+  const currentPersonId = authStore.user?.person_id || authStore.user?.user_id || authStore.user?.id;
+  const isParentContainerFlow = !!isCreatingParent || !!values.is_parent || values.record_kind === 'container';
+  const shouldAutoAssignAgent =
+    authStore.user?.role === 'agent' &&
+    !!currentPersonId &&
+    (!!isStandalone || isParentContainerFlow);
+  // Hide agent picker when agent is auto-assigned in standalone create,
+  // parent-container flow (auto agent), and in edit mode (preselected/default value should not be changed here).
+  const shouldHideAssignAgentSection = shouldAutoAssignAgent || !!isEditing || isParentContainerFlow;
 
   useEffect(() => {
-    if (personStore.agents.length === 0) personStore.fetchAgents();
+    if (!shouldHideAssignAgentSection && personStore.agents.length === 0) personStore.fetchAgents();
     if (authStore.isAdmin && personStore.persons.length === 0) personStore.fetchPersons();
+
+    // Standalone + parent-container flows: listing agent is always the logged-in agent.
+    if (shouldAutoAssignAgent) {
+      const normalizedCurrentAgentId = String(currentPersonId);
+      if (values.agent_id !== normalizedCurrentAgentId) {
+        setFieldValue('agent_id', normalizedCurrentAgentId);
+      }
+      return;
+    }
 
     // Auto-select current user if they are an agent and no agent is selected yet (initial state is null)
     if (values.agent_id === null) {
       if (authStore.user?.role === 'agent') {
-        const currentPersonId = authStore.user?.person_id || authStore.user?.user_id || authStore.user?.id;
         if (currentPersonId) {
           setFieldValue('agent_id', String(currentPersonId));
         }
@@ -49,7 +66,7 @@ const StepBasicInfo = observer(() => {
         setFieldValue('agent_id', ''); // Default to None for non-agents
       }
     }
-  }, [setFieldValue, values.agent_id]);
+  }, [setFieldValue, values.agent_id, shouldAutoAssignAgent, shouldHideAssignAgentSection, currentPersonId]);
 
   const renderError = (field: string) => {
     if (touched[field] && errors[field]) {
@@ -205,90 +222,91 @@ const StepBasicInfo = observer(() => {
         </View>
       )}
 
-      {/* Assign Agent Section Redesign */}
-      <View style={styles.modernAssignmentSection}>
-        <View style={styles.sectionHeader}>
-          <View>
-            <AppText variant="h2" weight="bold" style={{ color: theme.text }}>Assign Agent (Optional)</AppText>
-            <AppText variant="small" style={{ color: theme.subtext }}>Select an agent to manage this property.</AppText>
-          </View>
-        </View>
-        
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modernAgentScroll}>
-          {/* NONE Option */}
-          <TouchableOpacity
-            key="agent-none"
-            activeOpacity={0.7}
-            style={styles.circularAgentContainer}
-            onPress={() => setFieldValue('agent_id', '')}
-          >
-            <View style={[
-              styles.circularAvatarWrapper, 
-              { borderColor: !values.agent_id ? theme.primary : 'transparent' }
-            ]}>
-              <View style={[styles.noneCircle, { backgroundColor: theme.border + '30' }]}>
-                <MaterialCommunityIcons 
-                  name="account-off-outline" 
-                  size={24} 
-                  color={!values.agent_id ? theme.primary : theme.subtext} 
-                />
-              </View>
-              {!values.agent_id && (
-                <View style={[styles.miniCheckBadge, { backgroundColor: theme.primary }]}>
-                  <Ionicons name="checkmark" size={10} color="#fff" />
-                </View>
-              )}
+      {!shouldHideAssignAgentSection && (
+        <View style={styles.modernAssignmentSection}>
+          <View style={styles.sectionHeader}>
+            <View>
+              <AppText variant="h2" weight="bold" style={{ color: theme.text }}>Assign Agent (Optional)</AppText>
+              <AppText variant="small" style={{ color: theme.subtext }}>Select an agent to manage this property.</AppText>
             </View>
-            <AppText variant="tiny" weight={!values.agent_id ? "bold" : "medium"} style={{ 
-              color: !values.agent_id ? theme.primary : theme.subtext, 
-              marginTop: 8,
-              textAlign: 'center'
-            }}>None</AppText>
-          </TouchableOpacity>
-
-          {/* Agents List */}
-          {personStore.agents.map((agent, index) => {
-            const agentId = String(agent.person_id || agent.user_id || agent.id || '');
-            const isActive = values.agent_id === agentId;
-            const currentUserId = authStore.user?.person_id || authStore.user?.user_id || authStore.user?.id;
-            const isMe = String(currentUserId) === agentId;
-            
-            return (
-              <TouchableOpacity
-                key={`agent-${agentId || index}`}
-                activeOpacity={0.7}
-                style={styles.circularAgentContainer}
-                onPress={() => setFieldValue('agent_id', agentId)}
-              >
-                <View style={[
-                  styles.circularAvatarWrapper, 
-                  { borderColor: isActive ? theme.primary : 'transparent' }
-                ]}>
-                  <Avatar user={agent} size="lg" />
-                  {isActive && (
-                    <View style={[styles.miniCheckBadge, { backgroundColor: theme.primary }]}>
-                      <Ionicons name="checkmark" size={10} color="#fff" />
-                    </View>
-                  )}
+          </View>
+          
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modernAgentScroll}>
+            {/* NONE Option */}
+            <TouchableOpacity
+              key="agent-none"
+              activeOpacity={0.7}
+              style={styles.circularAgentContainer}
+              onPress={() => setFieldValue('agent_id', '')}
+            >
+              <View style={[
+                styles.circularAvatarWrapper, 
+                { borderColor: !values.agent_id ? theme.primary : 'transparent' }
+              ]}>
+                <View style={[styles.noneCircle, { backgroundColor: theme.border + '30' }]}>
+                  <MaterialCommunityIcons 
+                    name="account-off-outline" 
+                    size={24} 
+                    color={!values.agent_id ? theme.primary : theme.subtext} 
+                  />
                 </View>
-                <AppText variant="tiny" weight={isActive ? "bold" : "medium"} style={{ 
-                  color: isActive ? theme.primary : theme.text, 
-                  marginTop: 8,
-                  textAlign: 'center'
-                }} numberOfLines={1}>
-                  {isMe ? 'Me' : agent.full_name?.split(' ')[0]}
-                </AppText>
-                {isMe && (
-                  <View style={[styles.meTag, { backgroundColor: theme.primary + '15' }]}>
-                    <AppText variant="tiny" style={{ color: theme.primary, fontSize: 8, fontWeight: 'bold' }}>AUTO</AppText>
+                {!values.agent_id && (
+                  <View style={[styles.miniCheckBadge, { backgroundColor: theme.primary }]}>
+                    <Ionicons name="checkmark" size={10} color="#fff" />
                   </View>
                 )}
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-        {renderError('agent_id')}
-      </View>
+              </View>
+              <AppText variant="tiny" weight={!values.agent_id ? "bold" : "medium"} style={{ 
+                color: !values.agent_id ? theme.primary : theme.subtext, 
+                marginTop: 8,
+                textAlign: 'center'
+              }}>None</AppText>
+            </TouchableOpacity>
+
+            {/* Agents List */}
+            {personStore.agents.map((agent, index) => {
+              const agentId = String(agent.person_id || agent.user_id || agent.id || '');
+              const isActive = values.agent_id === agentId;
+              const currentUserId = authStore.user?.person_id || authStore.user?.user_id || authStore.user?.id;
+              const isMe = String(currentUserId) === agentId;
+              
+              return (
+                <TouchableOpacity
+                  key={`agent-${agentId || index}`}
+                  activeOpacity={0.7}
+                  style={styles.circularAgentContainer}
+                  onPress={() => setFieldValue('agent_id', agentId)}
+                >
+                  <View style={[
+                    styles.circularAvatarWrapper, 
+                    { borderColor: isActive ? theme.primary : 'transparent' }
+                  ]}>
+                    <Avatar user={agent} size="lg" />
+                    {isActive && (
+                      <View style={[styles.miniCheckBadge, { backgroundColor: theme.primary }]}>
+                        <Ionicons name="checkmark" size={10} color="#fff" />
+                      </View>
+                    )}
+                  </View>
+                  <AppText variant="tiny" weight={isActive ? "bold" : "medium"} style={{ 
+                    color: isActive ? theme.primary : theme.text, 
+                    marginTop: 8,
+                    textAlign: 'center'
+                  }} numberOfLines={1}>
+                    {isMe ? 'Me' : agent.full_name?.split(' ')[0]}
+                  </AppText>
+                  {isMe && (
+                    <View style={[styles.meTag, { backgroundColor: theme.primary + '15' }]}>
+                      <AppText variant="tiny" style={{ color: theme.primary, fontSize: 8, fontWeight: 'bold' }}>AUTO</AppText>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          {renderError('agent_id')}
+        </View>
+      )}
     </ScrollView>
   );
 });

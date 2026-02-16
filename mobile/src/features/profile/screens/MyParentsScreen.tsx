@@ -35,8 +35,33 @@ const MyParentsScreen = observer(({ category }: Props) => {
     fetchParents();
   };
 
+  const getAvailableUnitsCount = (parent: any) => {
+    const candidates = [
+      parent?.availableUnits,
+      parent?.available_units,
+      parent?.availableUnitsCount,
+      parent?.available_units_count,
+      parent?.available_children,
+    ];
+
+    const apiCount = candidates.find((v) => Number.isFinite(Number(v)));
+    if (apiCount !== undefined) return Number(apiCount);
+
+    const children = Array.isArray(parent?.Children) ? parent.Children : [];
+    if (!children.length) return 0;
+
+    return children.filter((u: any) => {
+      const isSale = !!u?.forSale || !!u?.is_available_for_sale || !!u?.for_sale || !!u?.isAvailableForSale;
+      const isRent = !!u?.forRent || !!u?.is_available_for_rent || !!u?.for_rent || !!u?.isAvailableForRent;
+      const status = String(u?.status || '').toLowerCase();
+      const hasAllowedStatus = !status || status === 'available' || status === 'active';
+      return hasAllowedStatus && (isSale || isRent);
+    }).length;
+  };
+
   const renderItem = ({ item }: any) => {
     if (!item) return null;
+    const availableUnits = getAvailableUnitsCount(item);
     return (
       <TouchableOpacity 
         style={[styles.card, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
@@ -57,7 +82,7 @@ const MyParentsScreen = observer(({ category }: Props) => {
           </View>
           <View style={[styles.badge, { backgroundColor: themeColors.infoSubtle }]}>
             <Text style={[styles.badgeText, { color: themeColors.infoText }]}>
-              {item.Children?.length || 0} Units
+              {availableUnits} {availableUnits === 1 ? 'Unit' : 'Units'}
             </Text>
           </View>
         </View>

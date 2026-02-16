@@ -728,17 +728,53 @@ const uploadFiles = async (req, res) => {
     const property = await Property.findByPk(id);
     if (!property) return res.status(404).json({ error: 'Property not found' });
 
+    const inferFileType = (file) => {
+      const mime = String(file?.mimetype || '').toLowerCase();
+      const ext = String(file?.originalname || '').toLowerCase().split('.').pop();
+
+      if (mime.startsWith('image/')) return 'photo';
+      if (mime.startsWith('video/')) return 'video';
+
+      const videoExts = ['mp4', 'webm', 'mov', 'avi', 'mkv', 'flv', 'wmv', 'mts', 'm4v'];
+      const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+
+      if (videoExts.includes(ext)) return 'video';
+      if (imageExts.includes(ext)) return 'photo';
+      return 'attachment';
+    };
+
     const photos = [];
+    const videos = [];
+    const attachments = [];
     if (req.files) {
       req.files.forEach(file => {
-        photos.push(`/uploads/${file.filename}`);
+        const fileUrl = `/uploads/${file.filename}`;
+        const fileType = inferFileType(file);
+        if (fileType === 'video') {
+          videos.push(fileUrl);
+        } else if (fileType === 'attachment') {
+          attachments.push(fileUrl);
+        } else {
+          photos.push(fileUrl);
+        }
       });
     }
 
     const existingPhotos = Array.isArray(property.photos) ? property.photos : [];
-    await property.update({ photos: [...existingPhotos, ...photos] });
+    const existingVideos = Array.isArray(property.videos) ? property.videos : [];
+    const existingAttachments = Array.isArray(property.attachments) ? property.attachments : [];
+    await property.update({
+      photos: [...existingPhotos, ...photos],
+      videos: [...existingVideos, ...videos],
+      attachments: [...existingAttachments, ...attachments],
+    });
 
-    res.json({ message: 'Files uploaded successfully', photos: property.photos });
+    res.json({
+      message: 'Files uploaded successfully',
+      photos: property.photos,
+      videos: property.videos,
+      attachments: property.attachments,
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -895,14 +931,28 @@ const updatePropertyAvailability = async (req, res) => {
 const deleteFile = async (req, res) => {
   try {
     const { id } = req.params;
-    const { fileUrl } = req.body;
+    const { fileUrl, type } = req.body;
     const property = await Property.findByPk(id);
     if (!property) return res.status(404).json({ error: 'Property not found' });
-    
+
+    if (type === 'video') {
+      const videos = Array.isArray(property.videos) ? property.videos : [];
+      const updatedVideos = videos.filter(v => v !== fileUrl);
+      await property.update({ videos: updatedVideos });
+      return res.json({ message: 'Video deleted successfully' });
+    }
+
+    if (type === 'attachment') {
+      const attachments = Array.isArray(property.attachments) ? property.attachments : [];
+      const updatedAttachments = attachments.filter(a => a !== fileUrl);
+      await property.update({ attachments: updatedAttachments });
+      return res.json({ message: 'Attachment deleted successfully' });
+    }
+
     const photos = Array.isArray(property.photos) ? property.photos : [];
     const updatedPhotos = photos.filter(p => p !== fileUrl);
     await property.update({ photos: updatedPhotos });
-    
+
     res.json({ message: 'File deleted successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });

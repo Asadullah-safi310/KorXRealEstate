@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, StyleSheet, ActivityIndicator, TouchableOpacity, Dimensions, Linking, Alert, Platform, Modal, FlatList } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, TouchableOpacity, Dimensions, Linking, Alert, Platform, Modal, FlatList, ScrollView } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { AppText } from '../../../components/AppText';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -194,6 +194,8 @@ const PropertyDetailsScreen = observer(() => {
   const [error, setError] = useState<string | null>(null);
   const [viewerVisible, setViewerVisible] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
+  const [selectedThumb, setSelectedThumb] = useState<{ type: 'image' | 'video'; index: number }>({ type: 'image', index: 0 });
+  const mediaPagerRef = useRef<FlatList<string>>(null);
   
   const scrollY = useSharedValue(0);
   const theme = useThemeColor();
@@ -323,6 +325,11 @@ const PropertyDetailsScreen = observer(() => {
     fetchProperty();
   }, [id, authStore.isAuthenticated]);
 
+  useEffect(() => {
+    setActiveImageIndex(0);
+    setSelectedThumb({ type: 'image', index: 0 });
+  }, [property?.property_id]);
+
   const toggleFavorite = () => {
     favoriteStore.toggleFavorite(propertyIdNum);
   };
@@ -417,7 +424,30 @@ const PropertyDetailsScreen = observer(() => {
     );
   }
 
-  const photos = property.photos || [];
+  const normalizeMediaList = (value: unknown): string[] => {
+    if (Array.isArray(value)) {
+      return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return [];
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
+        }
+      } catch {
+        // Keep backward compatibility for plain string media values.
+      }
+      return [trimmed];
+    }
+    return [];
+  };
+
+  const photos = normalizeMediaList(property.photos);
+  const videos = normalizeMediaList(property.videos);
+  const firstVideo = videos[0] || null;
+  const hasVideoThumb = Boolean(firstVideo);
   const price = parseFloat(property.purpose === 'sale' ? property.sale_price : property.rent_price);
   const currency = property.purpose === 'sale' ? property.sale_currency : property.rent_currency;
   const currencySymbol = currency === 'USD' ? '$' : 'AF';
@@ -467,13 +497,17 @@ const PropertyDetailsScreen = observer(() => {
         <Animated.View style={[styles.imageContainer, headerAnimatedStyle]}>
           {photos.length > 0 ? (
             <FlatList
+              ref={mediaPagerRef}
               data={photos}
               horizontal
               pagingEnabled
               showsHorizontalScrollIndicator={false}
               onScroll={(e) => {
                 const slide = Math.round(e.nativeEvent.contentOffset.x / width);
-                if (slide !== activeImageIndex) setActiveImageIndex(slide);
+                if (slide !== activeImageIndex) {
+                  setActiveImageIndex(slide);
+                  setSelectedThumb({ type: 'image', index: slide });
+                }
               }}
               scrollEventThrottle={16}
               keyExtractor={(_, i) => i.toString()}
@@ -529,8 +563,88 @@ const PropertyDetailsScreen = observer(() => {
           </View>
         </Animated.View>
 
+        {(photos.length + (hasVideoThumb ? 1 : 0)) > 1 && (
+          <View style={styles.thumbnailSection}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.thumbnailScrollContent}
+            >
+              {hasVideoThumb && (
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    if (!firstVideo) return;
+                    const videoUrl = getImageUrl(firstVideo);
+                    if (!videoUrl) return;
+                    setSelectedThumb({ type: 'video', index: 0 });
+                    Linking.openURL(videoUrl).catch(() => {
+                      Alert.alert('Error', 'Unable to open this video');
+                    });
+                  }}
+                  style={[
+                    styles.thumbnailButton,
+                    {
+                      borderColor:
+                        selectedThumb.type === 'video' ? primaryColor : theme.border + '55',
+                    },
+                  ]}
+                >
+                  {photos[0] ? (
+                    <Image
+                      source={{ uri: getImageUrl(photos[0]) ?? undefined }}
+                      style={styles.thumbnailImage}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <View style={[styles.thumbnailImage, { backgroundColor: theme.card }]} />
+                  )}
+                  <View style={styles.videoThumbOverlay}>
+                    <Ionicons name="play" size={20} color="#fff" />
+                  </View>
+                </TouchableOpacity>
+              )}
+
+              {photos.map((photo, index) => (
+                <TouchableOpacity
+                  key={`${photo}-${index}`}
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    setSelectedThumb({ type: 'image', index });
+                    setActiveImageIndex(index);
+                    mediaPagerRef.current?.scrollToOffset({ offset: width * index, animated: true });
+                  }}
+                  style={[
+                    styles.thumbnailButton,
+                    {
+                      borderColor:
+                        selectedThumb.type === 'image' && selectedThumb.index === index
+                          ? primaryColor
+                          : theme.border + '55',
+                    },
+                  ]}
+                >
+                  <Image
+                    source={{ uri: getImageUrl(photo) ?? undefined }}
+                    style={styles.thumbnailImage}
+                    contentFit="cover"
+                  />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
         {/* Content Card */}
-        <View style={[styles.contentCard, { backgroundColor: theme.background }]}>
+        <View
+          style={[
+            styles.contentCard,
+            {
+              backgroundColor: theme.background,
+              marginTop: (photos.length + (hasVideoThumb ? 1 : 0)) > 1 ? 12 : -32,
+            },
+          ]}
+        >
           <View style={[styles.indicator, { backgroundColor: theme.border }]} />
           
           <View style={styles.headerInfo}>
@@ -652,7 +766,7 @@ const PropertyDetailsScreen = observer(() => {
                   {property.area_size} Sq. Ft.
                 </AppText>
               </View>
-              {property.property_type !== 'plot' && property.property_type !== 'land' && (
+              {['house', 'apartment'].includes(String(property.property_type || '').toLowerCase()) && (
                 <>
                   <View style={styles.statItemMini}>
                     <Ionicons name="water-outline" size={18} color="#475569" />
@@ -1118,6 +1232,30 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  thumbnailSection: {
+    paddingTop: 12,
+    paddingHorizontal: 16,
+  },
+  thumbnailScrollContent: {
+    gap: 10,
+  },
+  thumbnailButton: {
+    width: 84,
+    height: 64,
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 2,
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
+  },
+  videoThumbOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.35)',
   },
   indicator: {
     width: 40,

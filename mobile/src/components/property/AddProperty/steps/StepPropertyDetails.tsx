@@ -243,7 +243,7 @@ const StepPropertyDetails = () => {
             <View style={{ width: 12 }} />
             <View style={{ flex: 1 }}>
               <AnimatedFormInput
-                label="Planned Units"
+                label="Planned Units (Optional)"
                 placeholder="e.g. 50"
                 keyboardType="numeric"
                 value={values.planned_units?.toString()}

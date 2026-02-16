@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { 
   View, 
   StyleSheet, 
@@ -57,6 +57,9 @@ const ParentProfileScreen = observer(() => {
   const [selectedType, setSelectedType] = useState<string>('ALL');
   const [selectedBeds, setSelectedBeds] = useState<string>('ALL');
   const [agentProfile, setAgentProfile] = useState<any>(null);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [selectedThumb, setSelectedThumb] = useState<{ type: 'image' | 'video'; index: number }>({ type: 'image', index: 0 });
+  const mediaPagerRef = useRef<FlatList<string>>(null);
 
   const parentId = Number(id);
   const category = Array.isArray(categoryParam) ? categoryParam[0] : categoryParam;
@@ -154,6 +157,11 @@ const ParentProfileScreen = observer(() => {
       setActiveTab('available');
     }
   }, [canViewAllProperties, activeTab]);
+
+  useEffect(() => {
+    setActiveImageIndex(0);
+    setSelectedThumb({ type: 'image', index: 0 });
+  }, [parent?.property_id, parent?.id]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -300,6 +308,26 @@ const ParentProfileScreen = observer(() => {
     return [];
   };
 
+  const normalizeMediaList = (value: unknown): string[] => {
+    if (Array.isArray(value)) {
+      return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return [];
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
+        }
+      } catch {
+        // Backward compatibility for plain media path strings.
+      }
+      return [trimmed];
+    }
+    return [];
+  };
+
   const buildParentAddress = () => {
     const street = parent.address || parent.location;
     const area = parent.AreaData?.name || parent.area?.name || parent.area_name;
@@ -324,7 +352,10 @@ const ParentProfileScreen = observer(() => {
     );
   };
 
-  const images = parent.photos || [];
+  const images = normalizeMediaList(parent.photos);
+  const videos = normalizeMediaList(parent.videos);
+  const firstVideo = videos[0] || null;
+  const hasVideoThumb = Boolean(firstVideo);
 
   return (
     <ScreenLayout backgroundColor={theme.background} scrollable={false}>
@@ -335,10 +366,19 @@ const ParentProfileScreen = observer(() => {
         <View style={styles.imageContainer}>
           {images.length > 0 ? (
             <FlatList
+              ref={mediaPagerRef}
               data={images}
               horizontal
               pagingEnabled
               showsHorizontalScrollIndicator={false}
+              onScroll={(e) => {
+                const slide = Math.round(e.nativeEvent.contentOffset.x / width);
+                if (slide !== activeImageIndex) {
+                  setActiveImageIndex(slide);
+                  setSelectedThumb({ type: 'image', index: slide });
+                }
+              }}
+              scrollEventThrottle={16}
               keyExtractor={(_, index) => index.toString()}
               renderItem={({ item }) => (
                 <Image 
@@ -380,7 +420,86 @@ const ParentProfileScreen = observer(() => {
           )}
         </View>
 
-        <View style={[styles.content, { backgroundColor: theme.background }]}>
+        {(images.length + (hasVideoThumb ? 1 : 0)) > 1 && (
+          <View style={styles.thumbnailSection}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.thumbnailScrollContent}
+            >
+              {hasVideoThumb && (
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    if (!firstVideo) return;
+                    const videoUrl = getImageUrl(firstVideo);
+                    if (!videoUrl) return;
+                    setSelectedThumb({ type: 'video', index: 0 });
+                    Linking.openURL(videoUrl).catch(() => {
+                      Alert.alert('Error', 'Unable to open this video');
+                    });
+                  }}
+                  style={[
+                    styles.thumbnailButton,
+                    {
+                      borderColor: selectedThumb.type === 'video' ? theme.primary : theme.border + '55',
+                    },
+                  ]}
+                >
+                  {images[0] ? (
+                    <Image
+                      source={{ uri: getImageUrl(images[0]) || '' }}
+                      style={styles.thumbnailImage}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <View style={[styles.thumbnailImage, { backgroundColor: theme.card }]} />
+                  )}
+                  <View style={styles.videoThumbOverlay}>
+                    <Ionicons name="play" size={20} color="#fff" />
+                  </View>
+                </TouchableOpacity>
+              )}
+
+              {images.map((image, index) => (
+                <TouchableOpacity
+                  key={`${image}-${index}`}
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    setSelectedThumb({ type: 'image', index });
+                    setActiveImageIndex(index);
+                    mediaPagerRef.current?.scrollToOffset({ offset: width * index, animated: true });
+                  }}
+                  style={[
+                    styles.thumbnailButton,
+                    {
+                      borderColor:
+                        selectedThumb.type === 'image' && selectedThumb.index === index
+                          ? theme.primary
+                          : theme.border + '55',
+                    },
+                  ]}
+                >
+                  <Image
+                    source={{ uri: getImageUrl(image) || '' }}
+                    style={styles.thumbnailImage}
+                    contentFit="cover"
+                  />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        <View
+          style={[
+            styles.content,
+            {
+              backgroundColor: theme.background,
+              marginTop: (images.length + (hasVideoThumb ? 1 : 0)) > 1 ? 12 : -30,
+            },
+          ]}
+        >
           <View style={styles.headerInfo}>
             <View style={styles.titleRow}>
               <AppText variant="h2" weight="bold" color={theme.text}>{parent.title}</AppText>
@@ -720,6 +839,16 @@ const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   imageContainer: { height: HEADER_HEIGHT, width: width, position: 'relative' },
   headerImage: { width: width, height: HEADER_HEIGHT },
+  thumbnailSection: { paddingTop: 12, paddingHorizontal: 16 },
+  thumbnailScrollContent: { gap: 10 },
+  thumbnailButton: { width: 84, height: 64, borderRadius: 14, overflow: 'hidden', borderWidth: 2 },
+  thumbnailImage: { width: '100%', height: '100%' },
+  videoThumbOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
   backButton: { position: 'absolute', left: 20, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
   headerActions: { position: 'absolute', right: 20, flexDirection: 'row', gap: 10 },
   actionButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
