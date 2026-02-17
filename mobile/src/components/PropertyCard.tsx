@@ -330,25 +330,37 @@ const PropertyCard = observer(({
   if (variant === 'horizontal') {
     return (
       <View style={styles.cardWrapper}>
-        <Pressable
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          onPress={handleCardPress}
+        <Animated.View 
+          entering={FadeInDown.delay(index * 100).duration(500)}
+          style={[cardAnimatedStyle]}
         >
-          <Animated.View 
-            entering={FadeInDown.delay(index * 100).duration(500)}
-            style={[cardAnimatedStyle]}
+          <View 
+            style={[styles.horizontalCard, { backgroundColor: themeColors.card }]}
           >
-            <View 
-              style={[styles.horizontalCard, { backgroundColor: themeColors.card }]}
-            >
               {photos.length > 0 ? (
-                <Image 
-                  source={{ uri: getImageUrl(photos[0]) || '' }} 
-                  style={styles.horizontalImage} 
-                  contentFit="cover"
-                  transition={300}
-                  placeholder={DefaultPropertyImage}
+                <FlatList
+                  data={photos}
+                  horizontal
+                  pagingEnabled
+                  directionalLockEnabled
+                  nestedScrollEnabled
+                  scrollEnabled={photos.length > 1}
+                  style={styles.horizontalImageList}
+                  showsHorizontalScrollIndicator={false}
+                  keyExtractor={(_, idx) => `horizontal-${idx}`}
+                  onScroll={handleScroll}
+                  scrollEventThrottle={16}
+                  renderItem={({ item }) => (
+                    <View style={styles.horizontalImageSlide}>
+                      <Image 
+                        source={{ uri: getImageUrl(item) || '' }} 
+                        style={styles.horizontalImage} 
+                        contentFit="cover"
+                        transition={300}
+                        placeholder={DefaultPropertyImage}
+                      />
+                    </View>
+                  )}
                 />
               ) : (
                 <Image 
@@ -358,15 +370,30 @@ const PropertyCard = observer(({
                 />
               )}
 
+              {photos.length > 1 && (
+                <View style={styles.horizontalDotsWrap} pointerEvents="none">
+                  {photos.map((_, i) => (
+                    <View
+                      key={`horizontal-dot-${i}`}
+                      style={[
+                        styles.horizontalDot,
+                        i === activeIndex && styles.horizontalDotActive,
+                      ]}
+                    />
+                  ))}
+                </View>
+              )}
+
               <LinearGradient
                 colors={['rgba(0,0,0,0.06)', 'rgba(0,0,0,0.16)', 'rgba(0,0,0,0.42)', 'rgba(0,0,0,0.84)']}
                 start={{ x: 0.5, y: 0 }}
                 end={{ x: 0.5, y: 1 }}
                 style={styles.horizontalOverlay}
+                pointerEvents="none"
               />
 
-              <View style={styles.horizontalTopRow}>
-                <View style={styles.purposeBadgesContainer}>
+              <View style={styles.horizontalTopRow} pointerEvents="box-none">
+                <View style={styles.purposeBadgesContainer} pointerEvents="none">
                   {property.is_available_for_sale && (
                     <View style={styles.purposeBadge}>
                       <Text style={{ color: '#FFFFFF', fontSize: 9, fontWeight: '700' }}>
@@ -439,12 +466,12 @@ const PropertyCard = observer(({
                 )}
               </View>
 
-              <View style={styles.horizontalContentOverlay}>
-                <AppText variant="body" weight="bold" color={themeColors.white} numberOfLines={1} style={styles.horizontalPriceText}>
+              <TouchableOpacity style={styles.horizontalContentOverlay} activeOpacity={0.92} onPress={handleCardPress}>
+                <AppText variant="tiny" weight="bold" color={themeColors.white} numberOfLines={1} style={styles.horizontalPriceText}>
                   {displayPrice}
                 </AppText>
 
-                <AppText variant="title" weight="bold" color={themeColors.white} numberOfLines={2} style={styles.horizontalTitleText}>
+                <AppText variant="small" weight="bold" color={themeColors.white} numberOfLines={2} style={styles.horizontalTitleText}>
                   {propertyTitle}
                 </AppText>
 
@@ -484,10 +511,9 @@ const PropertyCard = observer(({
                     </View>
                   )}
                 </View>
-              </View>
-            </View>
-          </Animated.View>
-        </Pressable>
+              </TouchableOpacity>
+          </View>
+        </Animated.View>
       </View>
     );
   }
@@ -1433,6 +1459,36 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  horizontalImageList: {
+    width: '100%',
+    height: '100%',
+  },
+  horizontalImageSlide: {
+    width: SCREEN_WIDTH - 40,
+    height: '100%',
+  },
+  horizontalDotsWrap: {
+    position: 'absolute',
+    bottom: 12,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 5,
+    zIndex: 3,
+  },
+  horizontalDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.45)',
+  },
+  horizontalDotActive: {
+    width: 14,
+    borderRadius: 4,
+    backgroundColor: '#FFFFFF',
+  },
   horizontalOverlay: {
     ...StyleSheet.absoluteFillObject,
   },
@@ -1492,12 +1548,12 @@ const styles = StyleSheet.create({
     bottom: 12,
   },
   horizontalPriceText: {
-    fontSize: 12,
+    fontSize: 10,
     marginBottom: 4,
   },
   horizontalTitleText: {
-    fontSize: 16,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 16,
     marginBottom: 6,
   },
   horizontalLocation: {

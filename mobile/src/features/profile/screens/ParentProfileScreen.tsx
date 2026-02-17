@@ -9,7 +9,8 @@ import {
   RefreshControl,
   FlatList,
   Linking,
-  Platform
+  Platform,
+  Modal
 } from 'react-native';
 import { AppText } from '../../../components/AppText';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -31,6 +32,8 @@ import { Alert } from 'react-native';
 import { userService } from '../../../services/user.service';
 import { useLanguage } from '../../../contexts/LanguageContext';
 import { toWhatsAppPhone } from '../../../utils/phoneUtils';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // Safe import for react-native-maps
 let MapView: any;
@@ -46,8 +49,124 @@ try {
   console.log('react-native-maps not available');
 }
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 const HEADER_HEIGHT = 350;
+
+const ZoomableImage = ({ uri }: { uri: string }) => {
+  const scale = useSharedValue(1);
+  const savedScale = useSharedValue(1);
+
+  useEffect(() => {
+    scale.value = 1;
+    savedScale.value = 1;
+  }, [uri]);
+
+  const pinch = Gesture.Pinch()
+    .onUpdate((event) => {
+      const nextScale = savedScale.value * event.scale;
+      scale.value = Math.max(1, Math.min(4, nextScale));
+    })
+    .onEnd(() => {
+      savedScale.value = scale.value;
+      if (savedScale.value < 1.01) {
+        scale.value = withTiming(1);
+        savedScale.value = 1;
+      }
+    });
+
+  const doubleTap = Gesture.Tap()
+    .numberOfTaps(2)
+    .maxDelay(250)
+    .onEnd(() => {
+      const nextScale = savedScale.value > 1.5 ? 1 : 2;
+      scale.value = withTiming(nextScale);
+      savedScale.value = nextScale;
+    });
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <View style={styles.fullscreenImageWrapper}>
+      <GestureDetector gesture={Gesture.Simultaneous(pinch, doubleTap)}>
+        <Animated.View style={[styles.zoomImageContainer, animatedStyle]}>
+          <Image source={{ uri }} style={styles.fullscreenImage} contentFit="contain" />
+        </Animated.View>
+      </GestureDetector>
+    </View>
+  );
+};
+
+const FullscreenViewer = ({
+  visible,
+  images,
+  initialIndex,
+  onClose,
+}: {
+  visible: boolean;
+  images: string[];
+  initialIndex: number;
+  onClose: () => void;
+}) => {
+  const insets = useSafeAreaInsets();
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+
+  useEffect(() => {
+    if (visible) {
+      setCurrentIndex(initialIndex);
+    }
+  }, [visible, initialIndex]);
+
+  if (!visible) return null;
+
+  return (
+    <Modal visible={visible} transparent statusBarTranslucent onRequestClose={onClose}>
+      <GestureHandlerRootView style={styles.fullscreenContainer}>
+        <View style={styles.fullscreenContainer}>
+          <BlurView intensity={100} tint="dark" style={StyleSheet.absoluteFill} />
+          <ZoomableImage
+            key={`fullscreen-${currentIndex}-${images[currentIndex] || 'image'}`}
+            uri={getImageUrl(images[currentIndex]) || images[currentIndex] || ''}
+          />
+
+          <TouchableOpacity style={[styles.closeButton, { top: insets.top + 10 }]} onPress={onClose}>
+            <Ionicons name="close" size={28} color="#fff" />
+          </TouchableOpacity>
+
+          <View style={[styles.fullscreenBadge, { bottom: insets.bottom + 40 }]}>
+            <AppText variant="body" weight="bold" color="#fff">
+              {currentIndex + 1} / {images.length}
+            </AppText>
+          </View>
+
+          {images.length > 1 && (
+            <>
+              <TouchableOpacity
+                style={[styles.fullscreenNavButton, styles.fullscreenNavLeft]}
+                onPress={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
+                disabled={currentIndex === 0}
+              >
+                <Ionicons name="chevron-back" size={26} color={currentIndex === 0 ? 'rgba(255,255,255,0.5)' : '#fff'} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.fullscreenNavButton, styles.fullscreenNavRight]}
+                onPress={() => setCurrentIndex((prev) => Math.min(images.length - 1, prev + 1))}
+                disabled={currentIndex === images.length - 1}
+              >
+                <Ionicons
+                  name="chevron-forward"
+                  size={26}
+                  color={currentIndex === images.length - 1 ? 'rgba(255,255,255,0.5)' : '#fff'}
+                />
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      </GestureHandlerRootView>
+    </Modal>
+  );
+};
 
 const ParentProfileScreen = observer(() => {
   const { category: categoryParam, id } = useLocalSearchParams();
@@ -61,6 +180,8 @@ const ParentProfileScreen = observer(() => {
   const [selectedBeds, setSelectedBeds] = useState<string>('ALL');
   const [agentProfile, setAgentProfile] = useState<any>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState(0);
   const [selectedThumb, setSelectedThumb] = useState<{ type: 'image' | 'video'; index: number }>({ type: 'image', index: 0 });
   const mediaPagerRef = useRef<FlatList<string>>(null);
 
@@ -406,7 +527,7 @@ const ParentProfileScreen = observer(() => {
   const hasVideoThumb = Boolean(firstVideo);
 
   return (
-    <ScreenLayout backgroundColor={theme.background} scrollable={false}>
+    <ScreenLayout backgroundColor={theme.background} scrollable={false} edges={['left', 'right', 'bottom']}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -428,12 +549,20 @@ const ParentProfileScreen = observer(() => {
               }}
               scrollEventThrottle={16}
               keyExtractor={(_, index) => index.toString()}
-              renderItem={({ item }) => (
-                <Image 
-                  source={{ uri: getImageUrl(item) || '' }} 
-                  style={styles.headerImage} 
-                  contentFit="cover" 
-                />
+              renderItem={({ item, index }) => (
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  onPress={() => {
+                    setViewerIndex(index);
+                    setViewerVisible(true);
+                  }}
+                >
+                  <Image 
+                    source={{ uri: getImageUrl(item) || '' }} 
+                    style={styles.headerImage} 
+                    contentFit="cover" 
+                  />
+                </TouchableOpacity>
               )}
             />
           ) : (
@@ -879,6 +1008,15 @@ const ParentProfileScreen = observer(() => {
           )}
         </View>
       </ScrollView>
+
+      {images.length > 0 && (
+        <FullscreenViewer
+          visible={viewerVisible}
+          images={images}
+          initialIndex={viewerIndex}
+          onClose={() => setViewerVisible(false)}
+        />
+      )}
     </ScreenLayout>
   );
 });
@@ -978,7 +1116,63 @@ const styles = StyleSheet.create({
   emptyUnits: { padding: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed', borderWidth: 1.5 },
   filterScroll: { marginBottom: 16 },
   filterContent: { gap: 8 },
-  filterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, borderWidth: 1 }
+  filterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, borderWidth: 1 },
+  fullscreenContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  fullscreenImageWrapper: {
+    width: width,
+    height: height,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullscreenImage: {
+    width: width,
+    height: height,
+  },
+  zoomImageContainer: {
+    width: width,
+    height: height,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButton: {
+    position: 'absolute',
+    right: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  fullscreenBadge: {
+    position: 'absolute',
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  fullscreenNavButton: {
+    position: 'absolute',
+    top: '50%',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    marginTop: -21,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullscreenNavLeft: {
+    left: 16,
+  },
+  fullscreenNavRight: {
+    right: 16,
+  },
 });
 
 export default ParentProfileScreen;

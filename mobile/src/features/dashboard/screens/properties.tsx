@@ -483,6 +483,7 @@ const PropertiesScreen = observer(() => {
 
       <FlatList
           data={displayProperties}
+          nestedScrollEnabled
           ListHeaderComponent={
             <View style={styles.listHeader}>
               <View

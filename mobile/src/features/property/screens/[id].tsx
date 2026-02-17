@@ -27,8 +27,10 @@ import Animated, {
   FadeIn,
   FadeOut,
   ZoomIn,
-  ZoomOut
+  ZoomOut,
+  withTiming
 } from 'react-native-reanimated';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Image } from 'expo-image';
 import { AMENITY_ICONS } from '../../../constants/Amenities';
 import { useLanguage } from '../../../contexts/LanguageContext';
@@ -52,6 +54,56 @@ const { width, height } = Dimensions.get('window');
 const HEADER_HEIGHT = 420;
 const FOOTER_SAFE_HEIGHT = 96;
 
+const ZoomableImage = ({ uri }: { uri: string }) => {
+  const scale = useSharedValue(1);
+  const savedScale = useSharedValue(1);
+
+  useEffect(() => {
+    scale.value = 1;
+    savedScale.value = 1;
+  }, [uri]);
+
+  const pinch = Gesture.Pinch()
+    .onUpdate((event) => {
+      const nextScale = savedScale.value * event.scale;
+      scale.value = Math.max(1, Math.min(4, nextScale));
+    })
+    .onEnd(() => {
+      savedScale.value = scale.value;
+      if (savedScale.value < 1.01) {
+        scale.value = withTiming(1);
+        savedScale.value = 1;
+      }
+    });
+
+  const doubleTap = Gesture.Tap()
+    .numberOfTaps(2)
+    .maxDelay(250)
+    .onEnd(() => {
+      const nextScale = savedScale.value > 1.5 ? 1 : 2;
+      scale.value = withTiming(nextScale);
+      savedScale.value = nextScale;
+    });
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <View style={styles.fullscreenImageWrapper}>
+      <GestureDetector gesture={Gesture.Simultaneous(pinch, doubleTap)}>
+        <Animated.View style={[styles.zoomImageContainer, animatedStyle]}>
+          <Image
+            source={{ uri }}
+            style={styles.fullscreenImage}
+            contentFit="contain"
+          />
+        </Animated.View>
+      </GestureDetector>
+    </View>
+  );
+};
+
 const FullscreenViewer = ({ 
   visible, 
   images, 
@@ -66,59 +118,73 @@ const FullscreenViewer = ({
   const insets = useSafeAreaInsets();
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
 
+  useEffect(() => {
+    if (visible) {
+      setCurrentIndex(initialIndex);
+    }
+  }, [visible, initialIndex]);
+
   if (!visible) return null;
 
   return (
-    <Modal visible={visible} transparent onRequestClose={onClose}>
-      <Animated.View 
-        entering={FadeIn.duration(300)} 
-        exiting={FadeOut.duration(200)}
-        style={styles.fullscreenContainer}
-      >
-        <BlurView intensity={100} tint="dark" style={StyleSheet.absoluteFill} />
-        
+    <Modal visible={visible} transparent statusBarTranslucent onRequestClose={onClose}>
+      <GestureHandlerRootView style={styles.fullscreenContainer}>
         <Animated.View 
-          entering={ZoomIn.duration(400)}
-          exiting={ZoomOut.duration(300)}
-          style={{ flex: 1 }}
+          entering={FadeIn.duration(300)} 
+          exiting={FadeOut.duration(200)}
+          style={styles.fullscreenContainer}
         >
-          <FlatList
-            data={images}
-            horizontal
-            pagingEnabled
-            initialScrollIndex={initialIndex}
-            getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
-            showsHorizontalScrollIndicator={false}
-            onMomentumScrollEnd={(e) => {
-              setCurrentIndex(Math.round(e.nativeEvent.contentOffset.x / width));
-            }}
-            keyExtractor={(_, index) => index.toString()}
-            renderItem={({ item }) => (
-              <View style={styles.fullscreenImageWrapper}>
-                <Image 
-                  source={{ uri: getImageUrl(item) ?? undefined }} 
-                  style={styles.fullscreenImage}
-                  contentFit="contain"
+          <BlurView intensity={100} tint="dark" style={StyleSheet.absoluteFill} />
+          
+          <Animated.View 
+            entering={ZoomIn.duration(400)}
+            exiting={ZoomOut.duration(300)}
+            style={{ flex: 1 }}
+          >
+            <ZoomableImage
+              key={`fullscreen-${currentIndex}-${images[currentIndex] || 'image'}`}
+              uri={getImageUrl(images[currentIndex]) || images[currentIndex] || ''}
+            />
+          </Animated.View>
+
+          {/* Fullscreen UI */}
+          <TouchableOpacity 
+            style={[styles.closeButton, { top: insets.top + 10 }]} 
+            onPress={onClose}
+          >
+            <Ionicons name="close" size={28} color="#fff" />
+          </TouchableOpacity>
+
+          <View style={[styles.fullscreenBadge, { bottom: insets.bottom + 40 }]}>
+            <AppText variant="body" weight="bold" color="#fff">
+              {currentIndex + 1} / {images.length}
+            </AppText>
+          </View>
+
+          {images.length > 1 && (
+            <>
+              <TouchableOpacity
+                style={[styles.fullscreenNavButton, styles.fullscreenNavLeft]}
+                onPress={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
+                disabled={currentIndex === 0}
+              >
+                <Ionicons name="chevron-back" size={26} color={currentIndex === 0 ? 'rgba(255,255,255,0.5)' : '#fff'} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.fullscreenNavButton, styles.fullscreenNavRight]}
+                onPress={() => setCurrentIndex((prev) => Math.min(images.length - 1, prev + 1))}
+                disabled={currentIndex === images.length - 1}
+              >
+                <Ionicons
+                  name="chevron-forward"
+                  size={26}
+                  color={currentIndex === images.length - 1 ? 'rgba(255,255,255,0.5)' : '#fff'}
                 />
-              </View>
-            )}
-          />
+              </TouchableOpacity>
+            </>
+          )}
         </Animated.View>
-
-        {/* Fullscreen UI */}
-        <TouchableOpacity 
-          style={[styles.closeButton, { top: insets.top + 10 }]} 
-          onPress={onClose}
-        >
-          <Ionicons name="close" size={28} color="#fff" />
-        </TouchableOpacity>
-
-        <View style={[styles.fullscreenBadge, { bottom: insets.bottom + 40 }]}>
-          <AppText variant="body" weight="bold" color="#fff">
-            {currentIndex + 1} / {images.length}
-          </AppText>
-        </View>
-      </Animated.View>
+      </GestureHandlerRootView>
     </Modal>
   );
 };
@@ -241,7 +307,7 @@ const PropertyDetailsScreen = observer(() => {
 
   const stickyHeaderStyle = useAnimatedStyle(() => {
     return {
-      backgroundColor: theme.background,
+      backgroundColor: 'rgba(0,0,0,0.36)',
       opacity: interpolate(
         scrollY.value,
         [HEADER_HEIGHT - 100, HEADER_HEIGHT - 60],
@@ -1570,6 +1636,12 @@ const styles = StyleSheet.create({
     width: width,
     height: height,
   },
+  zoomImageContainer: {
+    width: width,
+    height: height,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   closeButton: {
     position: 'absolute',
     right: 20,
@@ -1588,6 +1660,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
+  },
+  fullscreenNavButton: {
+    position: 'absolute',
+    top: '50%',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    marginTop: -21,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullscreenNavLeft: {
+    left: 16,
+  },
+  fullscreenNavRight: {
+    right: 16,
   },
   parentLink: {
     marginTop: 16,
