@@ -13,8 +13,10 @@ import { locationService } from '../../../services/location.service';
 import propertyStore from '../../../stores/PropertyStore';
 import filterStore from '../../../stores/FilterStore';
 import authStore from '../../../stores/AuthStore';
+import { useLanguage } from '../../../contexts/LanguageContext';
 
 const PriceRangeSlider = ({ min, max, currency, onValueChange, onCurrencyChange, themeColors }: any) => {
+  const { t } = useLanguage();
   const [width, setWidth] = useState(0);
   const [pageX, setPageX] = useState(0);
   const viewRef = useRef<View>(null);
@@ -90,7 +92,7 @@ const PriceRangeSlider = ({ min, max, currency, onValueChange, onCurrencyChange,
     <View>
       <View style={styles.priceInputRow}>
         <View style={[styles.priceInputWrap, { borderColor: themeColors.border, backgroundColor: themeColors.background }]}>
-          <AppText variant="tiny" weight="bold" style={[styles.priceInputLabel, { color: themeColors.subtext }]}>MIN</AppText>
+          <AppText variant="tiny" weight="bold" style={[styles.priceInputLabel, { color: themeColors.subtext }]}>{t('filters.min')}</AppText>
           <TextInput
             value={minInput}
             onChangeText={setMinInput}
@@ -106,7 +108,7 @@ const PriceRangeSlider = ({ min, max, currency, onValueChange, onCurrencyChange,
           />
         </View>
         <View style={[styles.priceInputWrap, { borderColor: themeColors.border, backgroundColor: themeColors.background }]}>
-          <AppText variant="tiny" weight="bold" style={[styles.priceInputLabel, { color: themeColors.subtext }]}>MAX</AppText>
+          <AppText variant="tiny" weight="bold" style={[styles.priceInputLabel, { color: themeColors.subtext }]}>{t('filters.max')}</AppText>
           <TextInput
             value={maxInput}
             onChangeText={setMaxInput}
@@ -228,6 +230,7 @@ const FiltersScreen = observer(() => {
   const router = useRouter();
   const themeColors = useThemeColor();
   const insets = useSafeAreaInsets();
+  const { t } = useLanguage();
   const [agents, setAgents] = useState<any[]>([]);
   const [provinces, setProvinces] = useState<any[]>([]);
   const [districts, setDistricts] = useState<any[]>([]);
@@ -414,7 +417,7 @@ const FiltersScreen = observer(() => {
           borderBottomColor: themeColors.border + '20'
         }]}>
           <View style={styles.headerContent}>
-            <AppText variant="h2" weight="bold" style={[styles.headerTitle, { color: themeColors.text }]}>Filters</AppText>
+            <AppText variant="h2" weight="bold" style={[styles.headerTitle, { color: themeColors.text }]}>{t('filters.filters')}</AppText>
             <TouchableOpacity 
               onPress={clearFilters}
               style={[styles.resetButton, { 
@@ -425,7 +428,7 @@ const FiltersScreen = observer(() => {
               <Ionicons name="refresh" size={16} color={hasActiveFilters() ? '#fff' : themeColors.subtext} />
               <AppText style={[styles.resetButtonText, { 
                 color: hasActiveFilters() ? '#fff' : themeColors.subtext 
-              }]}>Reset</AppText>
+              }]}>{t('common.reset')}</AppText>
             </TouchableOpacity>
           </View>
         </View>
@@ -435,9 +438,9 @@ const FiltersScreen = observer(() => {
         contentContainerStyle={{ paddingTop: insets.top + 2, paddingBottom: 180 }}
       >
         <View style={[styles.filterCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
-          <AppText variant="title" weight="bold" style={[styles.sectionTitle, { color: themeColors.text }]}>Location</AppText>
+          <AppText variant="title" weight="bold" style={[styles.sectionTitle, { color: themeColors.text }]}>{t('filters.location')}</AppText>
           
-          <AppText variant="tiny" weight="bold" style={[styles.filterLabel, { color: themeColors.subtext }]}>PROVINCE</AppText>
+          <AppText variant="tiny" weight="bold" style={[styles.filterLabel, { color: themeColors.subtext }]}>{t('filters.province').toUpperCase()}</AppText>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
             <View style={styles.chipGrid}>
               {provinces.map((province: any) => {
@@ -469,7 +472,7 @@ const FiltersScreen = observer(() => {
           {filters.province_id && districts.length > 0 && (
             <>
               <AppText variant="tiny" weight="bold" style={[styles.filterLabel, { color: themeColors.subtext, marginTop: 12 }]}>
-                DISTRICT IN {getProvinceName(filters.province_id)}
+                {t('filters.districtIn').toUpperCase()} {getProvinceName(filters.province_id).toUpperCase()}
               </AppText>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
                 <View style={styles.chipGrid}>
@@ -504,7 +507,7 @@ const FiltersScreen = observer(() => {
           {filters.district_id && areas.length > 0 && (
             <>
               <AppText variant="tiny" weight="bold" style={[styles.filterLabel, { color: themeColors.subtext, marginTop: 12 }]}>
-                AREA IN {getDistrictName(filters.district_id)}
+                {t('filters.areaIn').toUpperCase()} {getDistrictName(filters.district_id).toUpperCase()}
               </AppText>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
                 <View style={styles.chipGrid}>
@@ -538,13 +541,13 @@ const FiltersScreen = observer(() => {
         </View>
 
         <View style={[styles.filterCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
-          <AppText variant="title" weight="bold" style={[styles.sectionTitle, { color: themeColors.text }]}>Property Type</AppText>
+          <AppText variant="title" weight="bold" style={[styles.sectionTitle, { color: themeColors.text }]}>{t('filters.propertyType')}</AppText>
           <View style={styles.chipGrid}>
             {[
-              { label: 'House', value: 'house' },
-              { label: 'Apartment', value: 'apartment' },
-              { label: 'Land', value: 'land' },
-              { label: 'Shop', value: 'shop' },
+              { label: t('property.house'), value: 'house' },
+              { label: t('property.apartment'), value: 'apartment' },
+              { label: t('property.land'), value: 'land' },
+              { label: t('property.shop'), value: 'shop' },
             ].map((item) => {
               const isActive = filters.property_type === item.value;
               return (
@@ -571,12 +574,12 @@ const FiltersScreen = observer(() => {
         </View>
 
         <View style={[styles.filterCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
-          <AppText variant="title" weight="bold" style={[styles.sectionTitle, { color: themeColors.text }]}>Category</AppText>
+          <AppText variant="title" weight="bold" style={[styles.sectionTitle, { color: themeColors.text }]}>{t('filters.category')}</AppText>
           <View style={styles.chipGrid}>
             {[
-              { label: 'Tower', value: 'tower' },
-              { label: 'Market', value: 'market' },
-              { label: 'Sharak', value: 'sharak' },
+              { label: t('property.tower'), value: 'tower' },
+              { label: t('property.market'), value: 'market' },
+              { label: t('property.sharak'), value: 'sharak' },
             ].map((item) => {
               const isActive = filters.property_category === item.value;
               return (
@@ -603,11 +606,11 @@ const FiltersScreen = observer(() => {
         </View>
 
         <View style={[styles.filterCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
-          <AppText variant="title" weight="bold" style={[styles.sectionTitle, { color: themeColors.text }]}>Purpose</AppText>
+          <AppText variant="title" weight="bold" style={[styles.sectionTitle, { color: themeColors.text }]}>{t('filters.purpose')}</AppText>
           <View style={styles.chipGrid}>
             {[
-              { label: 'For Sale', value: 'sale' },
-              { label: 'For Rent', value: 'rent' },
+              { label: t('property.forSale'), value: 'sale' },
+              { label: t('property.forRent'), value: 'rent' },
             ].map((item) => {
               const isActive = filters.purpose === item.value;
               return (
@@ -635,7 +638,7 @@ const FiltersScreen = observer(() => {
 
         <View style={[styles.filterCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
           <AppText variant="title" weight="bold" style={[styles.sectionTitle, { color: themeColors.text }]}>
-            Price Range {filters.purpose === 'rent' ? '(Rent)' : filters.purpose === 'sale' ? '(Sale)' : ''}
+            {filters.purpose === 'rent' ? t('filters.priceRangeRent') : filters.purpose === 'sale' ? t('filters.priceRangeSale') : t('filters.priceRange')}
           </AppText>
           <PriceRangeSlider 
             min={filters.min_price || '0'} 
@@ -658,7 +661,7 @@ const FiltersScreen = observer(() => {
         </View>
 
         <View style={[styles.filterCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
-          <AppText variant="title" weight="bold" style={[styles.sectionTitle, { color: themeColors.text }]}>Bedrooms</AppText>
+          <AppText variant="title" weight="bold" style={[styles.sectionTitle, { color: themeColors.text }]}>{t('filters.bedrooms')}</AppText>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.filterRowScroll}>
               {['ALL', ...Array.from({ length: 20 }, (_, i) => String(i + 1))].map((num) => {
@@ -679,7 +682,7 @@ const FiltersScreen = observer(() => {
                     <AppText variant="tiny" weight="bold" style={[
                       styles.filterChipText, 
                       { color: isActive ? themeColors.primary : themeColors.subtext }
-                    ]}>{num === 'ALL' ? 'All' : num}</AppText>
+                    ]}>{num === 'ALL' ? t('common.all') : num}</AppText>
                   </TouchableOpacity>
                 );
               })}
@@ -688,7 +691,7 @@ const FiltersScreen = observer(() => {
         </View>
 
         <View style={[styles.filterCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
-          <AppText variant="title" weight="bold" style={[styles.sectionTitle, { color: themeColors.text }]}>Bathrooms</AppText>
+          <AppText variant="title" weight="bold" style={[styles.sectionTitle, { color: themeColors.text }]}>{t('filters.bathrooms')}</AppText>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.filterRowScroll}>
               {['ALL', ...Array.from({ length: 20 }, (_, i) => String(i + 1))].map((num) => {
@@ -709,7 +712,7 @@ const FiltersScreen = observer(() => {
                     <AppText variant="tiny" weight="bold" style={[
                       styles.filterChipText, 
                       { color: isActive ? themeColors.primary : themeColors.subtext }
-                    ]}>{num === 'ALL' ? 'All' : num}</AppText>
+                    ]}>{num === 'ALL' ? t('common.all') : num}</AppText>
                   </TouchableOpacity>
                 );
               })}
@@ -719,7 +722,7 @@ const FiltersScreen = observer(() => {
 
         {agents.filter((agent: any) => agent.role !== 'admin').length > 0 && (
           <View style={[styles.filterCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
-            <AppText variant="title" weight="bold" style={[styles.sectionTitle, { color: themeColors.text }]}>Agent</AppText>
+            <AppText variant="title" weight="bold" style={[styles.sectionTitle, { color: themeColors.text }]}>{t('filters.agent')}</AppText>
             <View style={styles.chipGrid}>
               {agents.filter((agent: any) => agent.role !== 'admin').map((agent: any) => {
                 const isActive = filters.agent_id === String(agent.user_id);
@@ -748,17 +751,26 @@ const FiltersScreen = observer(() => {
         )}
 
         <View style={[styles.filterCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
-          <AppText variant="title" weight="bold" style={[styles.sectionTitle, { color: themeColors.text }]}>Amenities</AppText>
+          <AppText variant="title" weight="bold" style={[styles.sectionTitle, { color: themeColors.text }]}>{t('property.amenities')}</AppText>
           <View style={styles.chipGrid}>
             {[
-              'Parking', 'Security Guard', 'Central Heating System', 'Cupboards',
-              'Sunny', 'Basement', 'AC', 'Lift', 'Furnished', 'Semi-Furnished',
-              'Solar Facility', 'Generator Facility'
+              { key: 'Parking', label: t('property.parking') },
+              { key: 'Security Guard', label: t('property.securityGuard') },
+              { key: 'Central Heating System', label: t('property.centralHeatingSystem') },
+              { key: 'Cupboards', label: t('property.cupboards') },
+              { key: 'Sunny', label: t('property.sunny') },
+              { key: 'Basement', label: t('property.basement') },
+              { key: 'AC', label: t('property.ac') },
+              { key: 'Lift', label: t('property.lift') },
+              { key: 'Furnished', label: t('property.furnished') },
+              { key: 'Semi-Furnished', label: t('property.semiFurnished') },
+              { key: 'Solar Facility', label: t('property.solarFacility') },
+              { key: 'Generator Facility', label: t('property.generatorFacility') }
             ].map((amenity) => {
-              const isActive = filters.amenities.includes(amenity);
+              const isActive = filters.amenities.includes(amenity.key);
               return (
                 <TouchableOpacity
-                  key={amenity}
+                  key={amenity.key}
                   style={[
                     styles.filterChip,
                     {
@@ -769,9 +781,9 @@ const FiltersScreen = observer(() => {
                   onPress={() => {
                     const currentAmenities = filters.amenities || [];
                     if (isActive) {
-                      filterStore.updateFilter('amenities', currentAmenities.filter((a: string) => a !== amenity));
+                      filterStore.updateFilter('amenities', currentAmenities.filter((a: string) => a !== amenity.key));
                     } else {
-                      filterStore.updateFilter('amenities', [...currentAmenities, amenity]);
+                      filterStore.updateFilter('amenities', [...currentAmenities, amenity.key]);
                     }
                   }}
                   activeOpacity={0.7}
@@ -779,7 +791,7 @@ const FiltersScreen = observer(() => {
                   <AppText variant="tiny" weight="bold" style={[
                     styles.filterChipText,
                     { color: isActive ? themeColors.primary : themeColors.subtext }
-                  ]}>{amenity}</AppText>
+                  ]}>{amenity.label}</AppText>
                 </TouchableOpacity>
               );
             })}
@@ -801,13 +813,13 @@ const FiltersScreen = observer(() => {
           {searching ? (
             <>
               <ActivityIndicator size="small" color="#fff" />
-              <AppText style={styles.applyBtnText}>Searching...</AppText>
+              <AppText style={styles.applyBtnText}>{t('filters.searching')}</AppText>
             </>
           ) : (
             <>
               <Ionicons name="search" size={20} color="#fff" />
               <AppText style={styles.applyBtnText}>
-                Search Properties
+                {t('filters.searchProperties')}
                 {hasActiveFilters() && ` (${Object.entries(filters).filter(([key, value]) => {
                   if (key === 'amenities') return Array.isArray(value) && value.length > 0;
                   return value !== '' && value !== 'USD';

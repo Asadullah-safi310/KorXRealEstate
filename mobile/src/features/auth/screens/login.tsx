@@ -9,6 +9,7 @@ import ScreenLayout from '../../../components/ScreenLayout';
 import { AppText } from '../../../components/AppText';
 import { BlurView } from 'expo-blur';
 import { useLanguage } from '../../../contexts/LanguageContext';
+import { normalizeAfghanPhone, isAfghanPhoneValid } from '../../../utils/phoneUtils';
 
 
 const LoginScreen = observer(() => {
@@ -19,6 +20,8 @@ const LoginScreen = observer(() => {
   const router = useRouter();
   const themeColors = useThemeColor();
   const { t } = useLanguage();
+  const isPhoneValid = isAfghanPhoneValid(phone);
+  const phoneValidationMessage = phone && !isPhoneValid ? t('errors.invalidPhone') : '';
 
   useEffect(() => {
     const backAction = () => {
@@ -36,14 +39,24 @@ const LoginScreen = observer(() => {
       setError(t('errors.requiredField'));
       return;
     }
+    if (!isPhoneValid) {
+      setError(t('errors.invalidPhone'));
+      return;
+    }
     setError('');
-    
-    const success = await authStore.login(phone, password);
+
+    const normalizedPhone = normalizeAfghanPhone(phone);
+    const success = await authStore.login(normalizedPhone, password);
     if (success) {
       router.replace('/(tabs)/dashboard');
     } else {
       setError(authStore.error || t('auth.invalidCredentials'));
     }
+  };
+
+  const handlePhoneChange = (value: string) => {
+    const digitsOnly = value.replace(/\D/g, '').slice(0, 10);
+    setPhone(digitsOnly);
   };
 
   return (
@@ -72,7 +85,7 @@ const LoginScreen = observer(() => {
           </View>
           <AppText variant="h1" weight="bold">{t('auth.welcomeBack')}</AppText>
           <AppText variant="body" color={themeColors.subtext} style={{ textAlign: 'center', opacity: 0.8, paddingHorizontal: 20 }}>
-            Sign in to your premium real estate account
+            {t('dashboard.signInPrompt')}
           </AppText>
         </View>
 
@@ -86,18 +99,33 @@ const LoginScreen = observer(() => {
 
           <View style={styles.inputGroup}>
             <AppText variant="small" weight="bold" style={{ marginLeft: 4, marginBottom: 8 }}>{t('auth.phone')}</AppText>
-            <View style={[styles.inputWrapper, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
-              <Ionicons name="call-outline" size={20} color={themeColors.subtext} style={styles.inputIcon} />
+            <View
+              style={[
+                styles.phoneInputWrapper,
+                {
+                  backgroundColor: themeColors.card,
+                  borderColor: phoneValidationMessage ? themeColors.danger : themeColors.border,
+                },
+              ]}
+            >
+              <View style={[styles.phonePrefix, { borderRightColor: themeColors.border }]}>
+                <AppText weight="bold" color={themeColors.text}>0093</AppText>
+              </View>
               <TextInput
-                style={[styles.input, { color: themeColors.text }]}
+                style={[styles.phoneInput, { color: themeColors.text }]}
                 placeholder={t('auth.enterPhone')}
                 placeholderTextColor={themeColors.subtext + '60'}
                 value={phone}
-                onChangeText={setPhone}
+                onChangeText={handlePhoneChange}
                 keyboardType="phone-pad"
                 autoCapitalize="none"
               />
             </View>
+            {phoneValidationMessage ? (
+              <AppText variant="caption" weight="medium" color={themeColors.danger} style={{ marginLeft: 4, marginTop: 4 }}>
+                {phoneValidationMessage}
+              </AppText>
+            ) : null}
           </View>
 
           <View style={styles.inputGroup}>
@@ -210,6 +238,26 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 14,
     height: 56,
+  },
+  phoneInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderRadius: 20,
+    height: 56,
+    paddingHorizontal: 14,
+  },
+  phonePrefix: {
+    paddingRight: 12,
+    marginRight: 12,
+    borderRightWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  phoneInput: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '500',
   },
   inputIcon: {
     marginRight: 12,

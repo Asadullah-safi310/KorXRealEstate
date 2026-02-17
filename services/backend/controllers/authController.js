@@ -152,10 +152,9 @@ exports.resetPassword = async (req, res) => {
     const { identifier, otp, newPassword } = req.body;
 
     // Password validation
-    const passwordRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*])(?=.{8,})/;
-    if (!passwordRegex.test(newPassword)) {
+    if (!newPassword || newPassword.length < 6) {
       return res.status(400).json({ 
-        message: 'Password must be at least 8 characters long and contain at least one number and one special character.' 
+        message: 'Password must be at least 6 characters long.' 
       });
     }
 

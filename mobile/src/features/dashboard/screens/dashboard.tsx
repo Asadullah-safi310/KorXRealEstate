@@ -14,6 +14,7 @@ import { Image } from 'expo-image';
 
 import { homeService } from '../../../services/home.service';
 import { ParentReelSection } from '../components/ParentReelSection';
+import { useLanguage } from '../../../contexts/LanguageContext';
 
 const { width } = Dimensions.get('window');
 
@@ -53,6 +54,7 @@ const AdminDashboard = observer(() => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const themeColors = useThemeColor();
+  const { t } = useLanguage();
 
   const fetchStats = async () => {
     try {
@@ -99,8 +101,8 @@ const AdminDashboard = observer(() => {
       <View style={[styles.premiumHeader, { paddingTop: insets.top + 10 }]}>
         <View style={styles.premiumHeaderTop}>
           <View>
-            <AppText variant="h1" weight="bold" color={themeColors.text}>Admin Console</AppText>
-            <AppText variant="small" weight="medium" color={themeColors.subtext}>System status: Operational</AppText>
+            <AppText variant="h1" weight="bold" color={themeColors.text}>{t('dashboard.adminConsole')}</AppText>
+            <AppText variant="small" weight="medium" color={themeColors.subtext}>{t('dashboard.systemStatus')}</AppText>
           </View>
           <TouchableOpacity 
             style={[styles.premiumProfileBtn, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
@@ -113,47 +115,47 @@ const AdminDashboard = observer(() => {
         <View style={[styles.premiumStatsRow, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
           <View style={styles.premiumMetaItem}>
             <AppText variant="h3" weight="bold" color={themeColors.text}>{stats.totalUsers}</AppText>
-            <AppText variant="caption" weight="semiBold" color={themeColors.subtext} style={{ textTransform: 'uppercase' }}>Users</AppText>
+            <AppText variant="caption" weight="semiBold" color={themeColors.subtext} style={{ textTransform: 'uppercase' }}>{t('dashboard.users')}</AppText>
           </View>
           <View style={[styles.premiumMetaDivider, { backgroundColor: themeColors.border }]} />
           <View style={styles.premiumMetaItem}>
             <AppText variant="h3" weight="bold" color={themeColors.text}>{stats.totalAgents || 0}</AppText>
-            <AppText variant="caption" weight="semiBold" color={themeColors.subtext} style={{ textTransform: 'uppercase' }}>Agents</AppText>
+            <AppText variant="caption" weight="semiBold" color={themeColors.subtext} style={{ textTransform: 'uppercase' }}>{t('dashboard.agents')}</AppText>
           </View>
           <View style={[styles.premiumMetaDivider, { backgroundColor: themeColors.border }]} />
           <View style={styles.premiumMetaItem}>
             <AppText variant="h3" weight="bold" color={themeColors.text}>{stats.totalDeals}</AppText>
-            <AppText variant="caption" weight="semiBold" color={themeColors.subtext} style={{ textTransform: 'uppercase' }}>Deals</AppText>
+            <AppText variant="caption" weight="semiBold" color={themeColors.subtext} style={{ textTransform: 'uppercase' }}>{t('deals.deals')}</AppText>
           </View>
         </View>
       </View>
 
       <View style={styles.mainContent}>
         <View style={styles.sectionHeaderRow}>
-          <AppText variant="title" weight="bold" color={themeColors.text}>Global Statistics</AppText>
+          <AppText variant="title" weight="bold" color={themeColors.text}>{t('dashboard.globalStatistics')}</AppText>
         </View>
         
         <View style={styles.statsGrid}>
           <StatCard 
-            label="Total Properties"
+            label={t('dashboard.totalProperties')}
             value={stats.totalProperties}
             color={themeColors.info}
             icon={<Ionicons name="business" />}
           />
           <StatCard 
-            label="Active Deals"
+            label={t('dashboard.activeDeals')}
             value={stats.totalDeals}
             color={themeColors.warning}
             icon={<MaterialCommunityIcons name="handshake" />}
           />
           <StatCard 
-            label="For Sale"
+            label={t('property.forSale')}
             value={stats.propertiesForSale}
             color={themeColors.success}
             icon={<Ionicons name="pricetag" />}
           />
           <StatCard 
-            label="For Rent"
+            label={t('property.forRent')}
             value={stats.propertiesForRent}
             color={themeColors.primary}
             icon={<Ionicons name="key" />}
@@ -161,7 +163,7 @@ const AdminDashboard = observer(() => {
         </View>
 
         <View style={[styles.sectionHeaderRow, { marginTop: 20 }]}>
-          <AppText variant="title" weight="bold" color={themeColors.text}>Management Tools</AppText>
+          <AppText variant="title" weight="bold" color={themeColors.text}>{t('dashboard.managementTools')}</AppText>
         </View>
         
         <View style={styles.adminToolGrid}>
@@ -172,8 +174,8 @@ const AdminDashboard = observer(() => {
             <View style={[styles.toolIconContainer, { backgroundColor: themeColors.infoSubtle }]}>
               <Ionicons name="people" size={24} color={themeColors.info} />
             </View>
-            <AppText variant="body" weight="bold" color={themeColors.text}>Users</AppText>
-            <AppText variant="caption" color={themeColors.subtext}>Roles & permissions</AppText>
+            <AppText variant="body" weight="bold" color={themeColors.text}>{t('dashboard.users')}</AppText>
+            <AppText variant="caption" color={themeColors.subtext}>{t('dashboard.rolesPermissions')}</AppText>
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -183,8 +185,8 @@ const AdminDashboard = observer(() => {
             <View style={[styles.toolIconContainer, { backgroundColor: themeColors.successSubtle }]}>
               <Ionicons name="business" size={24} color={themeColors.success} />
             </View>
-            <AppText variant="body" weight="bold" color={themeColors.text}>Properties</AppText>
-            <AppText variant="caption" color={themeColors.subtext}>Review all listings</AppText>
+            <AppText variant="body" weight="bold" color={themeColors.text}>{t('property.properties')}</AppText>
+            <AppText variant="caption" color={themeColors.subtext}>{t('dashboard.reviewAllListings')}</AppText>
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -194,8 +196,8 @@ const AdminDashboard = observer(() => {
             <View style={[styles.toolIconContainer, { backgroundColor: themeColors.warningSubtle }]}>
               <Ionicons name="bar-chart" size={24} color={themeColors.warning} />
             </View>
-            <AppText variant="body" weight="bold" color={themeColors.text}>Insights</AppText>
-            <AppText variant="caption" color={themeColors.subtext}>Analyze growth</AppText>
+            <AppText variant="body" weight="bold" color={themeColors.text}>{t('tabs.insights')}</AppText>
+            <AppText variant="caption" color={themeColors.subtext}>{t('dashboard.analyzeGrowth')}</AppText>
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -205,8 +207,8 @@ const AdminDashboard = observer(() => {
             <View style={[styles.toolIconContainer, { backgroundColor: '#8b5cf615' }]}>
               <Ionicons name="settings" size={24} color="#8b5cf6" />
             </View>
-            <AppText variant="body" weight="bold" color={themeColors.text}>Settings</AppText>
-            <AppText variant="caption" color={themeColors.subtext}>System platform</AppText>
+            <AppText variant="body" weight="bold" color={themeColors.text}>{t('profile.settings')}</AppText>
+            <AppText variant="caption" color={themeColors.subtext}>{t('dashboard.systemPlatform')}</AppText>
           </TouchableOpacity>
         </View>
       </View>
@@ -222,6 +224,7 @@ const UserDashboard = observer(() => {
   const bannerRef = useRef<FlatList>(null);
   const router = useRouter();
   const themeColors = useThemeColor();
+  const { t } = useLanguage();
 
   const fetchData = async () => {
     try {
@@ -328,7 +331,7 @@ const UserDashboard = observer(() => {
               onPress={() => router.push('/search')}
             >
               <AppText variant="body" weight="medium" color={themeColors.subtext} style={{ fontSize: 17 }}>
-                Search 
+                {t('common.search')}
               </AppText>
             </TouchableOpacity>
             <TouchableOpacity style={styles.micBtn}>
@@ -343,14 +346,14 @@ const UserDashboard = observer(() => {
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={themeColors.primary} />
             <AppText variant="body" weight="medium" color={themeColors.subtext} style={{ marginTop: 16 }}>
-              Loading content...
+              {t('dashboard.loadingContent')}
             </AppText>
           </View>
         ) : (
           <>
             {([...(containers.towers || []), ...(containers.apartments || [])]).length > 0 && (
               <ParentReelSection 
-                title="Towers" 
+                title={t('dashboard.towers')}
                 data={[...(containers.towers || []), ...(containers.apartments || [])]} 
                 category="tower"
                 cardSizeScale={1.1}
@@ -359,7 +362,7 @@ const UserDashboard = observer(() => {
 
             {(containers.markets || []).length > 0 && (
               <ParentReelSection 
-                title="Markets" 
+                title={t('dashboard.markets')}
                 data={containers.markets || []} 
                 category="market"
               />
@@ -367,7 +370,7 @@ const UserDashboard = observer(() => {
 
             {(containers.sharaks || []).length > 0 && (
               <ParentReelSection 
-                title="Sharaks" 
+                title={t('dashboard.sharaks')}
                 data={containers.sharaks || []} 
                 category="sharak"
               />

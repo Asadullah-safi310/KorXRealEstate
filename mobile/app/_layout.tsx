@@ -18,6 +18,7 @@ const AppContent = () => {
     <>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} translucent backgroundColor="transparent" />
       <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="welcome" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       </Stack>
     </>

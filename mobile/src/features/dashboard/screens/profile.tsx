@@ -244,8 +244,8 @@ const ProfileScreen = observer(() => {
             <MenuLink 
               index={1}
               icon="home-outline" 
-              title="My Properties" 
-              subtitle={`${myPropertiesCount} ${myPropertiesCount === 1 ? 'property' : 'properties'}`}
+              title={t('property.myProperties')} 
+              subtitle={`${myPropertiesCount} ${myPropertiesCount === 1 ? t('property.property') : t('property.properties')}`}
               onPress={() => router.push('/profile/my-properties')} 
               theme={themeColors}
             />
@@ -254,7 +254,7 @@ const ProfileScreen = observer(() => {
             <MenuLink 
               index={2}
               icon="business-outline" 
-              title="My Towers" 
+              title={t('profile.myTowers')} 
               onPress={() => router.push('/profile/my-apartments')} 
               theme={themeColors}
             />
@@ -263,7 +263,7 @@ const ProfileScreen = observer(() => {
             <MenuLink 
               index={3}
               icon="storefront-outline" 
-              title="My Markets" 
+              title={t('profile.myMarkets')} 
               onPress={() => router.push('/profile/my-markets')} 
               theme={themeColors}
             />
@@ -272,7 +272,7 @@ const ProfileScreen = observer(() => {
             <MenuLink 
               index={4}
               icon="people-outline" 
-              title="My Sharaks" 
+              title={t('profile.mySharaks')} 
               onPress={() => router.push('/profile/my-sharaks')} 
               theme={themeColors}
             />
@@ -305,7 +305,7 @@ const ProfileScreen = observer(() => {
             index={8}
             icon="information-circle-outline"
             title={t('profile.about')}
-            onPress={() => Alert.alert(t('profile.about'), 'Coming soon')}
+            onPress={() => router.push('/profile/about')}
             theme={themeColors}
           />
           <MenuLink 

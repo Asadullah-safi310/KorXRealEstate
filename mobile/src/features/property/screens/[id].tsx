@@ -31,6 +31,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import { AMENITY_ICONS } from '../../../constants/Amenities';
+import { useLanguage } from '../../../contexts/LanguageContext';
+import { toWhatsAppPhone } from '../../../utils/phoneUtils';
 
 // Safe import for react-native-maps to prevent crash on environments without native module
 let MapView: any;
@@ -124,6 +126,7 @@ const FullscreenViewer = ({
 const ProfileSection = observer(({ title, user, type }: { title: string; user: any; type: string }) => {
   const router = useRouter();
   const theme = useThemeColor();
+  const { t } = useLanguage();
 
   if (!user) return null;
 
@@ -138,9 +141,13 @@ const ProfileSection = observer(({ title, user, type }: { title: string; user: a
   const handleWhatsApp = () => {
     if (user.phone) {
       const message = 'Hello, I am interested in your property listing.';
-      const url = `whatsapp://send?phone=${user.phone}&text=${encodeURIComponent(message)}`;
-      Linking.openURL(url).catch(() => {
-        Alert.alert('Error', 'WhatsApp is not installed on your device');
+      const whatsappPhone = toWhatsAppPhone(user.phone);
+      const appUrl = `whatsapp://send?phone=${whatsappPhone}&text=${encodeURIComponent(message)}`;
+      const webUrl = `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(message)}`;
+      Linking.openURL(appUrl).catch(() => {
+        Linking.openURL(webUrl).catch(() => {
+          Alert.alert(t('common.error'), t('property.whatsappNotInstalled'));
+        });
       });
     }
   };
@@ -158,7 +165,7 @@ const ProfileSection = observer(({ title, user, type }: { title: string; user: a
           <View style={styles.miniProfileInfo}>
             <AppText variant="body" weight="bold" color={theme.text}>{user.full_name}</AppText>
             <AppText variant="small" weight="medium" color={theme.subtext}>
-              {type === 'Agent' ? 'Verified Agent' : 'Property Owner'}
+              {type === 'Agent' ? t('property.verifiedAgent') : t('property.propertyOwner')}
             </AppText>
           </View>
         </TouchableOpacity>
@@ -186,6 +193,7 @@ const PropertyDetailsScreen = observer(() => {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useLanguage();
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [property, setProperty] = useState<any>(null);
   const [children, setChildren] = useState<any[]>([]);
@@ -267,9 +275,13 @@ const PropertyDetailsScreen = observer(() => {
   const handleWhatsApp = (user: any) => {
     if (user?.phone) {
       const message = 'Hello, I am interested in your property listing.';
-      const url = `whatsapp://send?phone=${user.phone}&text=${encodeURIComponent(message)}`;
-      Linking.openURL(url).catch(() => {
-        Alert.alert('Error', 'WhatsApp is not installed on your device');
+      const whatsappPhone = toWhatsAppPhone(user.phone);
+      const appUrl = `whatsapp://send?phone=${whatsappPhone}&text=${encodeURIComponent(message)}`;
+      const webUrl = `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(message)}`;
+      Linking.openURL(appUrl).catch(() => {
+        Linking.openURL(webUrl).catch(() => {
+          Alert.alert(t('common.error'), t('property.whatsappNotInstalled'));
+        });
       });
     }
   };
@@ -315,7 +327,7 @@ const PropertyDetailsScreen = observer(() => {
             console.error('Failed to load property details after 401:', fallbackErr);
           }
         }
-        setError('Failed to load property details');
+        setError(t('common.error'));
         console.error(err);
       } finally {
         setLoading(false);
@@ -360,12 +372,12 @@ const PropertyDetailsScreen = observer(() => {
 
   const handleDelete = () => {
     Alert.alert(
-      'Delete Property',
-      'This action cannot be undone. Are you sure?',
+      t('property.deletePropertyTitle'),
+      t('property.deletePropertyMessage'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         { 
-          text: 'Delete', 
+          text: t('common.delete'), 
           style: 'destructive',
           onPress: async () => {
             try {
@@ -373,7 +385,7 @@ const PropertyDetailsScreen = observer(() => {
               await propertyStore.deleteProperty(id as string);
               router.back();
             } catch {
-              Alert.alert('Error', 'Failed to delete property');
+              Alert.alert(t('common.error'), t('property.failedToDelete'));
             } finally {
               setLoading(false);
             }
@@ -412,12 +424,12 @@ const PropertyDetailsScreen = observer(() => {
       <ScreenLayout backgroundColor={theme.background}>
         <View style={styles.center}>
           <Ionicons name="alert-circle-outline" size={64} color={theme.danger} />
-          <AppText variant="body" weight="medium" color={theme.text} style={{ marginTop: 12 }}>{error || 'Property not found'}</AppText>
+          <AppText variant="body" weight="medium" color={theme.text} style={{ marginTop: 12 }}>{error || t('property.propertyNotFound')}</AppText>
           <TouchableOpacity 
             style={[styles.backButton, { backgroundColor: primaryColor }]} 
             onPress={() => router.back()}
           >
-            <AppText variant="body" weight="bold" color="#fff">Return to Browse</AppText>
+            <AppText variant="body" weight="bold" color="#fff">{t('property.returnToBrowse')}</AppText>
           </TouchableOpacity>
         </View>
       </ScreenLayout>
@@ -475,7 +487,36 @@ const PropertyDetailsScreen = observer(() => {
 
     const parts = street ? [street, area, city, province] : [area, city, province];
     const formatted = parts.filter(Boolean).join(', ');
-    return formatted || 'Location not specified';
+    return formatted || t('property.locationNotSpecified');
+  };
+
+  const amenityTranslationKeyMap: Record<string, string> = {
+    Parking: 'property.parking',
+    'Security Guard': 'property.securityGuard',
+    'Central Heating System': 'property.centralHeatingSystem',
+    Cupboards: 'property.cupboards',
+    Sunny: 'property.sunny',
+    Basement: 'property.basement',
+    AC: 'property.ac',
+    Lift: 'property.lift',
+    Furnished: 'property.furnished',
+    'Semi-Furnished': 'property.semiFurnished',
+    'Solar Facility': 'property.solarFacility',
+    'Generator Facility': 'property.generatorFacility',
+    Electricity: 'property.electricity',
+    'Water Supply': 'property.waterSupply',
+    'Water supply': 'property.waterSupply',
+    Internet: 'property.internet',
+    internet: 'property.internet',
+    Gym: 'property.gym',
+    Pool: 'property.pool',
+    Garden: 'property.garden',
+    Gas: 'property.gas',
+  };
+
+  const localizeAmenity = (label: string) => {
+    const key = amenityTranslationKeyMap[label];
+    return key ? t(key) : label;
   };
 
   return (
@@ -579,7 +620,7 @@ const PropertyDetailsScreen = observer(() => {
                     if (!videoUrl) return;
                     setSelectedThumb({ type: 'video', index: 0 });
                     Linking.openURL(videoUrl).catch(() => {
-                      Alert.alert('Error', 'Unable to open this video');
+                      Alert.alert(t('common.error'), t('property.unableToOpenVideo'));
                     });
                   }}
                   style={[
@@ -652,20 +693,20 @@ const PropertyDetailsScreen = observer(() => {
               {!isContainer && price > 0 ? (
                 <AppText variant="h2" weight="bold" color={primaryColor}>
                   {currency === 'USD' ? `${currencySymbol}${price.toLocaleString()}` : `${price.toLocaleString()} ${currencySymbol}`}
-                  {property.purpose === 'rent' && <AppText variant="body" weight="medium" color={theme.subtext}> / month</AppText>}
+                  {property.purpose === 'rent' && <AppText variant="body" weight="medium" color={theme.subtext}> {t('property.perMonth')}</AppText>}
                 </AppText>
               ) : isContainer ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <Ionicons name="business" size={24} color={primaryColor} />
                   <AppText variant="h2" weight="bold" color={theme.text} style={{ marginLeft: 8 }}>
-                    {property.property_category ? property.property_category.charAt(0).toUpperCase() + property.property_category.slice(1) : 'Building'}
+                    {property.property_category ? property.property_category.charAt(0).toUpperCase() + property.property_category.slice(1) : t('property.building')}
                   </AppText>
                 </View>
               ) : null}
               {!isContainer && (
                 <View style={[styles.statusBadge, { backgroundColor: (property.is_available_for_rent || property.is_available_for_sale) ? '#dcfce7' : '#fee2e2' }]}>
                   <AppText variant="tiny" weight="bold" color={(property.is_available_for_rent || property.is_available_for_sale) ? '#166534' : '#991b1b'}>
-                    {(property.is_available_for_rent || property.is_available_for_sale) ? 'Active' : 'De active'}
+                    {(property.is_available_for_rent || property.is_available_for_sale) ? t('property.active') : t('property.deActive')}
                   </AppText>
                 </View>
               )}
@@ -674,17 +715,17 @@ const PropertyDetailsScreen = observer(() => {
             {isContainer && (
               <View style={[styles.containerStats, { backgroundColor: theme.card, borderColor: theme.border }]}>
                 <View style={styles.statBox}>
-                  <AppText variant="caption" color={theme.subtext}>Planned</AppText>
+                  <AppText variant="caption" color={theme.subtext}>{t('property.planned')}</AppText>
                   <AppText variant="title" weight="bold" color={theme.text}>{property.details?.planned_units || 'N/A'}</AppText>
                 </View>
                 <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
                 <View style={styles.statBox}>
-                  <AppText variant="caption" color={theme.subtext}>Added</AppText>
+                  <AppText variant="caption" color={theme.subtext}>{t('property.added')}</AppText>
                   <AppText variant="title" weight="bold" color={theme.text}>{property.total_children || 0}</AppText>
                 </View>
                 <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
                 <View style={styles.statBox}>
-                  <AppText variant="caption" color={theme.subtext}>Available</AppText>
+                  <AppText variant="caption" color={theme.subtext}>{t('property.available')}</AppText>
                   <AppText variant="title" weight="bold" color={primaryColor}>{property.available_children || 0}</AppText>
                 </View>
               </View>
@@ -715,7 +756,7 @@ const PropertyDetailsScreen = observer(() => {
               >
                 <Ionicons name="business-outline" size={20} color={primaryColor} />
                 <View style={{ marginLeft: 12, flex: 1 }}>
-                  <AppText variant="small" color={theme.subtext}>Located in</AppText>
+                  <AppText variant="small" color={theme.subtext}>{t('property.locatedIn')}</AppText>
                   <AppText variant="body" weight="bold" color={theme.text}>{property.Parent.title || property.Parent.property_type}</AppText>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={theme.subtext} />
@@ -733,7 +774,7 @@ const PropertyDetailsScreen = observer(() => {
               >
                 <Avatar user={listingUser} size="md" />
                 <AppText variant="body" weight="bold" color={theme.text} style={{ marginLeft: 12 }}>
-                  {listingUser?.full_name || 'Agent Name'}
+                  {listingUser?.full_name || t('people.agents')}
                 </AppText>
               </TouchableOpacity>
               <View style={styles.agentActionButtons}>
@@ -763,7 +804,7 @@ const PropertyDetailsScreen = observer(() => {
               <View style={styles.statItemMini}>
                 <Ionicons name="scan-outline" size={18} color="#475569" />
                 <AppText variant="small" weight="medium" color={theme.subtext} style={{ marginLeft: 6 }}>
-                  {property.area_size} Sq. Ft.
+                  {property.area_size} {t('property.sqFt')}
                 </AppText>
               </View>
               {['house', 'apartment'].includes(String(property.property_type || '').toLowerCase()) && (
@@ -771,13 +812,13 @@ const PropertyDetailsScreen = observer(() => {
                   <View style={styles.statItemMini}>
                     <Ionicons name="water-outline" size={18} color="#475569" />
                     <AppText variant="small" weight="medium" color={theme.subtext} style={{ marginLeft: 6 }}>
-                      {property.bathrooms || 0} Bath
+                      {property.bathrooms || 0} {t('property.bath')}
                     </AppText>
                   </View>
                   <View style={styles.statItemMini}>
                     <Ionicons name="bed-outline" size={18} color="#475569" />
                     <AppText variant="small" weight="medium" color={theme.subtext} style={{ marginLeft: 6 }}>
-                      {property.bedrooms || 0} Bed
+                      {property.bedrooms || 0} {t('property.bed')}
                     </AppText>
                   </View>
                 </>
@@ -790,7 +831,7 @@ const PropertyDetailsScreen = observer(() => {
                   <View style={styles.statItemMini}>
                     <MaterialCommunityIcons name="layers-outline" size={18} color="#475569" />
                     <AppText variant="small" weight="medium" color={theme.subtext} style={{ marginLeft: 6 }}>
-                      {property.floor} Floor
+                      {property.floor} {t('property.floor')}
                     </AppText>
                   </View>
                 )}
@@ -798,7 +839,12 @@ const PropertyDetailsScreen = observer(() => {
                   <View style={styles.statItemMini}>
                     <Ionicons name="pricetag-outline" size={18} color="#475569" />
                     <AppText variant="small" weight="medium" color={theme.subtext} style={{ marginLeft: 6 }}>
-                      {property.property_type === 'shop' ? 'Shop' : property.property_type === 'office' ? 'Office' : 'Apartment'} No {property.unit_number}
+                      {property.property_type === 'shop'
+                        ? `${t('property.shop')} ${t('property.unitNumber')}`
+                        : property.property_type === 'office'
+                          ? `${t('property.office')} ${t('property.unitNumber')}`
+                          : `${t('property.apartment')} ${t('property.unitNumber')}`}{' '}
+                      {property.unit_number}
                     </AppText>
                   </View>
                 )}
@@ -811,7 +857,7 @@ const PropertyDetailsScreen = observer(() => {
             <View style={styles.section}>
               <View style={styles.sectionHeaderRow}>
                 <AppText variant="small" weight="bold" color={theme.text} style={[styles.sectionTitle, { fontSize: 13 }]}>
-                  Units Available in This {property.property_category ? property.property_category.charAt(0).toUpperCase() + property.property_category.slice(1) : 'Container'}
+                  {t('property.unitsAvailableIn')} {property.property_category ? property.property_category.charAt(0).toUpperCase() + property.property_category.slice(1) : t('property.container')}
                 </AppText>
                 {canAddUnit && (
                   <TouchableOpacity 
@@ -819,7 +865,7 @@ const PropertyDetailsScreen = observer(() => {
                     onPress={() => router.push(`/property/create?parentId=${property.property_id}&category=${property.property_category}`)}
                   >
                     <Ionicons name="add" size={16} color={primaryColor} />
-                    <AppText variant="small" weight="bold" color={primaryColor}>Add Unit</AppText>
+                    <AppText variant="small" weight="bold" color={primaryColor}>{t('property.addUnit')}</AppText>
                   </TouchableOpacity>
                 )}
               </View>
@@ -847,7 +893,7 @@ const PropertyDetailsScreen = observer(() => {
                 />
               ) : (
                 <View style={[styles.emptyChildren, { backgroundColor: theme.card }]}>
-                  <AppText variant="small" color={theme.subtext}>No homes available yet</AppText>
+                  <AppText variant="small" color={theme.subtext}>{t('property.noHomesAvailable')}</AppText>
                 </View>
               )}
             </View>
@@ -855,9 +901,9 @@ const PropertyDetailsScreen = observer(() => {
 
           {/* Description Section */}
           <View style={styles.section}>
-            <AppText variant="title" weight="bold" color={theme.text} style={styles.sectionTitle}>Property description</AppText>
+            <AppText variant="title" weight="bold" color={theme.text} style={styles.sectionTitle}>{t('property.propertyDescription')}</AppText>
             <AppText variant="body" color={theme.text} style={styles.descriptionText}>
-              {property.description || 'Step into comfort and style with this spacious property featuring an open-concept living area and high-quality finishes.'}
+              {property.description || t('property.description')}
             </AppText>
           </View>
 
@@ -885,7 +931,7 @@ const PropertyDetailsScreen = observer(() => {
 
             return (
               <View style={styles.section}>
-                <AppText variant="title" weight="bold" color={theme.text} style={styles.sectionTitle}>Amenities</AppText>
+                <AppText variant="title" weight="bold" color={theme.text} style={styles.sectionTitle}>{t('property.amenities')}</AppText>
                 <View style={styles.amenitiesGrid}>
                   {amenities.map((amenity: string, i: number) => {
                     const amenityData = AMENITY_ICONS[amenity] || { icon: 'checkmark-circle-outline', provider: 'Ionicons' };
@@ -893,7 +939,9 @@ const PropertyDetailsScreen = observer(() => {
                     return (
                       <View key={i} style={[styles.amenityItem, { backgroundColor: theme.card, borderColor: theme.border }]}>
                         <IconProvider name={amenityData.icon as any} size={18} color={primaryColor} />
-                        <AppText variant="small" weight="medium" color={theme.text} style={{ marginLeft: 8 }}>{amenity}</AppText>
+                        <AppText variant="small" weight="medium" color={theme.text} style={{ marginLeft: 8 }}>
+                          {localizeAmenity(amenity)}
+                        </AppText>
                       </View>
                     );
                   })}
@@ -905,10 +953,10 @@ const PropertyDetailsScreen = observer(() => {
           {/* Location & Map Section */}
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
-              <AppText variant="title" weight="bold" color={theme.text} style={styles.sectionTitle}>Location</AppText>
+              <AppText variant="title" weight="bold" color={theme.text} style={styles.sectionTitle}>{t('property.location')}</AppText>
               <TouchableOpacity 
                 onPress={() => {
-                  const label = property.title || 'Property Location';
+                  const label = property.title || t('property.location');
                   const url = Platform.select({
                     ios: `maps:0,0?q=${label}@${property.latitude},${property.longitude}`,
                     android: `geo:0,0?q=${property.latitude},${property.longitude}(${label})`
@@ -916,7 +964,7 @@ const PropertyDetailsScreen = observer(() => {
                   if (url) Linking.openURL(url);
                 }}
               >
-                <AppText variant="body" weight="semiBold" color={primaryColor}>Open in Maps</AppText>
+                <AppText variant="body" weight="semiBold" color={primaryColor}>{t('property.openInMaps')}</AppText>
               </TouchableOpacity>
             </View>
             <AppText variant="small" weight="medium" color={theme.subtext} style={{ marginBottom: 16 }}>
@@ -926,7 +974,7 @@ const PropertyDetailsScreen = observer(() => {
             <TouchableOpacity 
               activeOpacity={0.9}
               onPress={() => {
-                const label = property.title || 'Property Location';
+                const label = property.title || t('property.location');
                 const url = Platform.select({
                   ios: `maps:0,0?q=${label}@${property.latitude},${property.longitude}`,
                   android: `geo:0,0?q=${property.latitude},${property.longitude}(${label})`
@@ -967,14 +1015,14 @@ const PropertyDetailsScreen = observer(() => {
                   <View style={styles.mapOverlay}>
                     <BlurView intensity={40} style={styles.mapOverlayBlur} tint="dark">
                       <Ionicons name="expand-outline" size={14} color="#fff" />
-                      <AppText variant="tiny" weight="bold" color="#fff" style={{ marginLeft: 4 }}>Tap to expand</AppText>
+                      <AppText variant="tiny" weight="bold" color="#fff" style={{ marginLeft: 4 }}>{t('property.tapToExpand')}</AppText>
                     </BlurView>
                   </View>
                 </>
               ) : (
                 <View style={[styles.mapPlaceholder, { backgroundColor: theme.card }]}>
                   <Ionicons name="map-outline" size={32} color={theme.subtext} />
-                  <AppText variant="small" color={theme.subtext}>Map location not available</AppText>
+                  <AppText variant="small" color={theme.subtext}>{t('property.mapNotAvailable')}</AppText>
                 </View>
               )}
             </TouchableOpacity>
@@ -986,14 +1034,14 @@ const PropertyDetailsScreen = observer(() => {
           {/* Owner Name and Property Code (Only visible to creator/agent) */}
           {canEdit && (property.owner_name || property.property_code) && (
             <View style={styles.section}>
-              <AppText variant="title" weight="bold" color={theme.text} style={styles.sectionTitle}>Property Information</AppText>
+              <AppText variant="title" weight="bold" color={theme.text} style={styles.sectionTitle}>{t('property.propertyInformation')}</AppText>
               <View style={[styles.ownerInfoCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
                 {property.property_code && (
                   <View style={styles.ownerInfoRow}>
                     <View style={styles.ownerInfoLeft}>
                       <Ionicons name="qr-code-outline" size={18} color={primaryColor} />
                       <View style={{ marginLeft: 10 }}>
-                        <AppText variant="caption" color={theme.subtext}>Property Code</AppText>
+                        <AppText variant="caption" color={theme.subtext}>{t('property.propertyCode')}</AppText>
                         <AppText variant="body" weight="bold" color={theme.text}>{property.property_code}</AppText>
                       </View>
                     </View>
@@ -1002,7 +1050,10 @@ const PropertyDetailsScreen = observer(() => {
                       onPress={async () => {
                         if (property.property_code) {
                           await Clipboard.setStringAsync(property.property_code);
-                          Alert.alert('Copied', `Property code ${property.property_code} copied to clipboard`);
+                          Alert.alert(
+                            t('property.copied'),
+                            t('property.propertyCodeCopied').replace('{code}', property.property_code)
+                          );
                         }
                       }}
                     >
@@ -1015,7 +1066,7 @@ const PropertyDetailsScreen = observer(() => {
                     <View style={styles.ownerInfoLeft}>
                       <Ionicons name="person-outline" size={18} color={primaryColor} />
                       <View style={{ marginLeft: 10 }}>
-                        <AppText variant="caption" color={theme.subtext}>Owner Name</AppText>
+                        <AppText variant="caption" color={theme.subtext}>{t('property.ownerName')}</AppText>
                         <AppText variant="body" weight="bold" color={theme.text}>{property.owner_name}</AppText>
                       </View>
                     </View>
@@ -1104,12 +1155,12 @@ const PropertyDetailsScreen = observer(() => {
               if (canDeal) {
                 router.push(`/deal/create?propertyId=${property.property_id}`);
               } else {
-                Alert.alert('Inquiry Sent', 'Your interest in this property has been recorded.');
+                Alert.alert(t('property.inquirySent'), t('property.inquiryRecorded'));
               }
             }}
           >
             <AppText variant="body" weight="bold" color="#fff">
-              {canDeal ? 'Transaction' : 'Send Inquiry'}
+              {canDeal ? t('property.transaction') : t('property.sendInquiry')}
             </AppText>
             <Ionicons name="chevron-forward" size={18} color="#fff" style={{ marginLeft: 6 }} />
           </TouchableOpacity>

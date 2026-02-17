@@ -326,7 +326,7 @@ const PropertyCard = observer(({
     );
   };
 
-  // Horizontal variant matching the attached image
+  // List variant: full-image card with overlay content
   if (variant === 'horizontal') {
     return (
       <View style={styles.cardWrapper}>
@@ -342,106 +342,147 @@ const PropertyCard = observer(({
             <View 
               style={[styles.horizontalCard, { backgroundColor: themeColors.card }]}
             >
-              {/* Image Section */}
-              <View style={[styles.horizontalImageContainer, { backgroundColor: themeColors.surface }]}>
-                {photos.length > 0 ? (
-                  <Image 
-                    source={{ uri: getImageUrl(photos[0]) || '' }} 
-                    style={styles.horizontalImage} 
-                    contentFit="cover"
-                    transition={300}
-                    placeholder={DefaultPropertyImage}
-                  />
-                ) : (
-                  <Image 
-                    source={DefaultPropertyImage}
-                    style={styles.horizontalImage} 
-                    contentFit="cover"
-                  />
-                )}
-                {/* Sale/Rent badges */}
+              {photos.length > 0 ? (
+                <Image 
+                  source={{ uri: getImageUrl(photos[0]) || '' }} 
+                  style={styles.horizontalImage} 
+                  contentFit="cover"
+                  transition={300}
+                  placeholder={DefaultPropertyImage}
+                />
+              ) : (
+                <Image 
+                  source={DefaultPropertyImage}
+                  style={styles.horizontalImage} 
+                  contentFit="cover"
+                />
+              )}
+
+              <LinearGradient
+                colors={['rgba(0,0,0,0.06)', 'rgba(0,0,0,0.16)', 'rgba(0,0,0,0.42)', 'rgba(0,0,0,0.84)']}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 1 }}
+                style={styles.horizontalOverlay}
+              />
+
+              <View style={styles.horizontalTopRow}>
                 <View style={styles.purposeBadgesContainer}>
                   {property.is_available_for_sale && (
-                    <View style={[styles.purposeBadge, { backgroundColor: saleTagBg }]}>
-                      <Text style={{ color: saleTagText, fontSize: 7, fontWeight: '600' }}>
+                    <View style={styles.purposeBadge}>
+                      <Text style={{ color: '#FFFFFF', fontSize: 9, fontWeight: '700' }}>
                         SALE
                       </Text>
                     </View>
                   )}
                   {property.is_available_for_rent && (
-                    <View style={[styles.purposeBadge, { backgroundColor: rentTagBg, marginLeft: property.is_available_for_sale ? 4 : 0 }]}>
-                      <Text style={{ color: rentTagText, fontSize: 7, fontWeight: '600' }}>
+                    <View style={[styles.purposeBadge, { marginLeft: property.is_available_for_sale ? 6 : 0 }]}>
+                      <Text style={{ color: '#FFFFFF', fontSize: 9, fontWeight: '700' }}>
                         RENT
                       </Text>
                     </View>
                   )}
                 </View>
+
+                {!hideMediaActions && (
+                  <View style={styles.horizontalMenuWrap}>
+                    <TouchableOpacity 
+                      style={styles.horizontalMoreBtn}
+                      onPress={toggleMediaMenu}
+                      activeOpacity={0.8}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons name="ellipsis-vertical" size={18} color="#FFFFFF" />
+                    </TouchableOpacity>
+
+                    {isMediaMenuOpen && (
+                      <View
+                        style={[
+                          styles.horizontalMediaMenu,
+                          {
+                            backgroundColor: themeColors.card,
+                            borderColor: themeColors.border,
+                          },
+                        ]}
+                      >
+                        <TouchableOpacity
+                          style={styles.mediaMenuItem}
+                          activeOpacity={0.8}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            shareProperty(property);
+                            setIsMediaMenuOpen(false);
+                          }}
+                        >
+                          <Ionicons name="share-social-outline" size={16} color={themeColors.text} />
+                          <AppText variant="small" weight="semiBold" color={themeColors.text} style={styles.mediaMenuLabel}>
+                            Share
+                          </AppText>
+                        </TouchableOpacity>
+
+                        <View style={[styles.mediaMenuDivider, { backgroundColor: themeColors.border }]} />
+
+                        <TouchableOpacity style={styles.mediaMenuItem} activeOpacity={0.8} onPress={toggleFavorite}>
+                          <Animated.View style={heartAnimatedStyle}>
+                            <Ionicons
+                              name={isFavorite ? "heart" : "heart-outline"}
+                              size={16}
+                              color={isFavorite ? themeColors.danger : themeColors.text}
+                            />
+                          </Animated.View>
+                          <AppText variant="small" weight="semiBold" color={themeColors.text} style={styles.mediaMenuLabel}>
+                            Favorite
+                          </AppText>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                )}
               </View>
 
-              {/* Content Section */}
-              <View style={styles.horizontalContent}>
-                <View style={styles.horizontalHeader}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 12, fontWeight: 'bold', color: themeColors.text, marginBottom: 4 }} numberOfLines={1}>
-                      {propertyTitle}
-                    </Text>
-                    <View style={styles.horizontalLocation}>
-                      <Ionicons name="location" size={9} color={themeColors.subtext} />
-                      <Text style={{ fontSize: 8, color: themeColors.subtext, flex: 1, marginLeft: 2 }} numberOfLines={1}>
-                        {fullAddress}
-                      </Text>
-                    </View>
+              <View style={styles.horizontalContentOverlay}>
+                <AppText variant="body" weight="bold" color={themeColors.white} numberOfLines={1} style={styles.horizontalPriceText}>
+                  {displayPrice}
+                </AppText>
+
+                <AppText variant="title" weight="bold" color={themeColors.white} numberOfLines={2} style={styles.horizontalTitleText}>
+                  {propertyTitle}
+                </AppText>
+
+                <View style={styles.horizontalLocation}>
+                  <Ionicons name="location-outline" size={12} color="rgba(255,255,255,0.9)" />
+                  <AppText variant="tiny" color="rgba(255,255,255,0.9)" numberOfLines={1} style={styles.horizontalLocationText}>
+                    {fullAddress}
+                  </AppText>
+                </View>
+
+                <View style={styles.horizontalBottomRow}>
+                  <View style={styles.horizontalAgentNameBadge}>
+                    <AppText variant="tiny" weight="semiBold" color="#FFFFFF" numberOfLines={1} style={styles.horizontalAgentNameText}>
+                      {property.Agent?.full_name || property.Creator?.full_name || 'Agent'}
+                    </AppText>
                   </View>
-                  <TouchableOpacity 
-                    onPress={toggleFavorite}
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <Animated.View style={heartAnimatedStyle}>
-                      <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={18} color={isFavorite ? themeColors.danger : themeColors.subtext} />
-                    </Animated.View>
-                  </TouchableOpacity>
-                </View>
 
-                <View style={styles.horizontalPriceRow}>
-                  <Text style={{ fontSize: 13, fontWeight: '500', color: themeColors.primary }} numberOfLines={1}>
-                    {displayPrice}
-                  </Text>
-                </View>
-
-                <View style={[styles.horizontalBottomRow, { borderTopColor: dividerColor }]}>
                   {!isContainer ? (
-                    <>
+                    <View style={styles.horizontalMetaWrap}>
                       {listingMetaItems.map((item, metaIdx) => (
-                        <View key={`horizontal-meta-${metaIdx}`} style={[styles.horizontalMetaItemBadge, metaBadgeThemeStyle]}>
+                        <View key={`horizontal-meta-${metaIdx}`} style={styles.horizontalMetaItemBadge}>
                           {item.provider === 'mci' ? (
-                            <MaterialCommunityIcons name={item.icon as any} size={11} color={themeColors.subtext} />
+                            <MaterialCommunityIcons name={item.icon as any} size={10} color="#FFFFFF" />
                           ) : (
-                            <Ionicons name={item.icon as any} size={11} color={themeColors.subtext} />
+                            <Ionicons name={item.icon as any} size={10} color="#FFFFFF" />
                           )}
-                          <Text style={{ marginLeft: 3, fontSize: 9, fontWeight: '500', color: themeColors.text }}>{item.value}</Text>
+                          <Text style={styles.horizontalMetaText}>{item.value}</Text>
                         </View>
                       ))}
-                    </>
+                    </View>
                   ) : (
-                    <View style={[styles.horizontalMetaItemBadge, metaBadgeThemeStyle]}>
-                      <Ionicons name="business-outline" size={11} color={themeColors.subtext} />
-                      <Text style={{ marginLeft: 3, fontSize: 9, fontWeight: '500', color: themeColors.text }}>{property.total_children || 0}</Text>
+                    <View style={styles.horizontalMetaWrap}>
+                      <View style={styles.horizontalMetaItemBadge}>
+                        <Ionicons name="business-outline" size={10} color="#FFFFFF" />
+                        <Text style={styles.horizontalMetaText}>{property.total_children || 0}</Text>
+                      </View>
                     </View>
                   )}
-                  {(property.Agent || property.Creator) ? (
-                    (property.Agent?.profile_picture || property.Creator?.profile_picture) ? (
-                      <Image 
-                        source={{ uri: getImageUrl(property.Agent?.profile_picture || property.Creator?.profile_picture) || '' }}
-                        style={styles.horizontalAgentAvatar}
-                        contentFit="cover"
-                      />
-                    ) : (
-                      <View style={[styles.horizontalAgentAvatar, { justifyContent: 'center', alignItems: 'center', backgroundColor: themeColors.surface }]}>
-                        <Ionicons name="person" size={11} color={themeColors.subtext} />
-                      </View>
-                    )
-                  ) : null}
                 </View>
               </View>
             </View>
@@ -662,7 +703,7 @@ const PropertyCard = observer(({
               )}
               {isSmallCompact ? null : (
                 <View style={[styles.compactBottomRow, { borderTopColor: dividerColor }]}>
-                  <AppText variant="body" weight="bold" color={themeColors.primary} numberOfLines={1} style={{ fontSize: 14 }}>
+                  <AppText variant="body" weight="bold" color={themeColors.warning} numberOfLines={1} style={{ fontSize: 14 }}>
                     {displayPrice}
                   </AppText>
                   {(property.Agent || property.Creator) ? (
@@ -686,7 +727,7 @@ const PropertyCard = observer(({
             {isSmallCompact && (
               <View style={styles.smallCompactInfoOverlay}>
                 <View style={styles.smallCompactTopRow}>
-                  <AppText variant="tiny" weight="bold" color={themeColors.primary} numberOfLines={1} style={styles.smallCompactPrice}>
+                  <AppText variant="tiny" weight="bold" color={themeColors.warning} numberOfLines={1} style={styles.smallCompactPrice}>
                     {displayPrice}
                   </AppText>
                   {!isContainer && (
@@ -694,9 +735,9 @@ const PropertyCard = observer(({
                       {listingMetaItems.map((item, metaIdx) => (
                         <View key={`small-compact-meta-${metaIdx}`} style={styles.smallCompactMetaItem}>
                           {item.provider === 'mci' ? (
-                            <MaterialCommunityIcons name={item.icon as any} size={11} color={themeColors.white} />
+                            <MaterialCommunityIcons name={item.icon as any} size={10} color={themeColors.white} />
                           ) : (
-                            <Ionicons name={item.icon as any} size={11} color={themeColors.white} />
+                            <Ionicons name={item.icon as any} size={10} color={themeColors.white} />
                           )}
                           <AppText variant="tiny" weight="semiBold" color={themeColors.white} style={styles.smallCompactMetaText}>
                             {item.value}
@@ -718,13 +759,13 @@ const PropertyCard = observer(({
                   <View style={styles.smallCompactMetaRow}>
                     <>
                       <View style={styles.smallCompactMetaItem}>
-                        <MaterialCommunityIcons name="layers-outline" size={11} color={themeColors.white} />
+                        <MaterialCommunityIcons name="layers-outline" size={10} color={themeColors.white} />
                         <AppText variant="tiny" weight="semiBold" color={themeColors.white} style={styles.smallCompactMetaText}>
                           {property.floor || '-'}
                         </AppText>
                       </View>
                       <View style={styles.smallCompactMetaItem}>
-                        <Ionicons name="pricetag-outline" size={11} color={themeColors.white} />
+                        <Ionicons name="pricetag-outline" size={10} color={themeColors.white} />
                         <AppText variant="tiny" weight="semiBold" color={themeColors.white} style={styles.smallCompactMetaText}>
                           {property.unit_number || '-'}
                         </AppText>
@@ -867,7 +908,7 @@ const PropertyCard = observer(({
                 variant="h2" 
                 weight="bold" 
                 numberOfLines={1} 
-                color={themeColors.primary}
+                color={themeColors.warning}
                 style={{ fontSize: 14, letterSpacing: -0.2 }}
               > 
                 {displayPrice}
@@ -1105,7 +1146,7 @@ const styles = StyleSheet.create({
     zIndex: 3,
   },
   smallCompactPrice: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '900',
     marginBottom: 0,
   },
@@ -1116,11 +1157,11 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
   smallCompactTitle: {
-    fontSize: 11,
+    fontSize: 10,
     marginBottom: 2,
   },
   smallCompactLocation: {
-    fontSize: 8,
+    fontSize: 7,
     opacity: 0.9,
     marginBottom: 3,
   },
@@ -1136,7 +1177,7 @@ const styles = StyleSheet.create({
   },
   smallCompactMetaText: {
     marginLeft: 3,
-    fontSize: 9,
+    fontSize: 8,
   },
   compactTitleRow: {
     flexDirection: 'row',
@@ -1378,91 +1419,136 @@ const styles = StyleSheet.create({
   },
   // Horizontal variant styles
   horizontalCard: {
-    flexDirection: 'row',
-    borderRadius: 12,
+    borderRadius: 20,
     overflow: 'hidden',
     marginBottom: 10,
-    elevation: 2,
+    height: 250,
+    elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    minHeight: 140,
-  },
-  horizontalImageContainer: {
-    width: 140,
-    height: 140,
-    position: 'relative',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
   },
   horizontalImage: {
     width: '100%',
     height: '100%',
   },
-  purposeBadgesContainer: {
+  horizontalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  horizontalTopRow: {
     position: 'absolute',
-    top: 6,
-    left: 6,
+    top: 12,
+    left: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  horizontalMenuWrap: {
+    position: 'relative',
+  },
+  horizontalMoreBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.36)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.24)',
+  },
+  horizontalMediaMenu: {
+    position: 'absolute',
+    top: 40,
+    right: 0,
+    minWidth: 122,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 4,
+    zIndex: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  purposeBadgesContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   purposeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0,0,0,0.36)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.24)',
   },
-  horizontalContent: {
-    flex: 1,
-    padding: 10,
-    paddingRight: 12,
-    justifyContent: 'space-between',
+  horizontalContentOverlay: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 12,
   },
-  horizontalHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
+  horizontalPriceText: {
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  horizontalTitleText: {
+    fontSize: 16,
+    lineHeight: 20,
     marginBottom: 6,
   },
   horizontalLocation: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
+    marginBottom: 10,
   },
-  horizontalFavorite: {
-    marginLeft: 8,
-    padding: 4,
+  horizontalLocationText: {
+    marginLeft: 4,
+    flex: 1,
   },
-  horizontalPriceRow: {
-    marginVertical: 6,
-  },
-  horizontalMetaRow: {
+  horizontalMetaWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginVertical: 6,
-  },
-  horizontalMetaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    gap: 6,
+    marginLeft: 'auto',
   },
   horizontalMetaItemBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 7,
     paddingVertical: 4,
-    borderRadius: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0,0,0,0.36)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.24)',
+  },
+  horizontalMetaText: {
+    marginLeft: 4,
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  horizontalAgentNameBadge: {
+    marginLeft: 8,
+    maxWidth: 108,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0,0,0,0.36)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.24)',
+  },
+  horizontalAgentNameText: {
+    fontSize: 9,
   },
   horizontalBottomRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 6,
-    paddingTop: 8,
-    borderTopWidth: 1,
-  },
-  horizontalAgentAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    gap: 8,
   },
 });
 

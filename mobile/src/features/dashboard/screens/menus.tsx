@@ -46,9 +46,7 @@ const MenusScreen = observer(() => {
       sublabel: 'Learn more about our app',
       icon: 'information-circle-outline',
       color: '#f59e0b',
-      action: () => {
-        // Navigate to about page when implemented
-      },
+      action: () => router.push('/profile/about'),
     },
   ];
 

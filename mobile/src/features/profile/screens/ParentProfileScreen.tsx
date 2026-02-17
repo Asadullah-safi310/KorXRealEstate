@@ -29,6 +29,8 @@ import { AMENITY_ICONS } from '../../../constants/Amenities';
 import { BlurView } from 'expo-blur';
 import { Alert } from 'react-native';
 import { userService } from '../../../services/user.service';
+import { useLanguage } from '../../../contexts/LanguageContext';
+import { toWhatsAppPhone } from '../../../utils/phoneUtils';
 
 // Safe import for react-native-maps
 let MapView: any;
@@ -51,6 +53,7 @@ const ParentProfileScreen = observer(() => {
   const { category: categoryParam, id } = useLocalSearchParams();
   const router = useRouter();
   const theme = useThemeColor();
+  const { t } = useLanguage();
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'features' | 'available' | 'allProperties'>('features');
@@ -172,11 +175,11 @@ const ParentProfileScreen = observer(() => {
   const getAddUnitText = () => {
     const cat = category?.toLowerCase() || '';
     switch (cat) {
-      case 'market': return 'Add Shop/Office';
-      case 'sharak': return 'Add Apartment/Shop/Office/Land/Plot/House';
+      case 'market': return t('property.addShopOffice');
+      case 'sharak': return t('property.addApartmentShopOfficeLandPlotHouse');
       case 'tower': 
-      case 'apartment': return 'Add Apartment/Shop/Office';
-      default: return 'Add Unit';
+      case 'apartment': return t('property.addApartmentShopOffice');
+      default: return t('property.addUnit');
     }
   };
 
@@ -191,6 +194,17 @@ const ParentProfileScreen = observer(() => {
     }
   };
 
+  const getFilterTypeLabel = (type: string) => {
+    const normalized = String(type || '').toUpperCase();
+    if (normalized === 'ALL') return t('common.all');
+    if (normalized === 'APARTMENT') return t('property.apartment');
+    if (normalized === 'SHOP') return t('property.shop');
+    if (normalized === 'OFFICE') return t('property.office');
+    if (normalized === 'LAND') return t('property.land');
+    if (normalized === 'HOUSE') return t('property.house');
+    return type;
+  };
+
   if (parentStore.loading && !parentStore.currentParent) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.background }]}>
@@ -202,9 +216,9 @@ const ParentProfileScreen = observer(() => {
   if (!parent) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.background }]}>
-        <AppText variant="body" color={theme.text}>Property not found</AppText>
+        <AppText variant="body" color={theme.text}>{t('property.propertyNotFound')}</AppText>
         <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
-          <AppText variant="body" color={theme.primary}>Go Back</AppText>
+          <AppText variant="body" color={theme.primary}>{t('common.back')}</AppText>
         </TouchableOpacity>
       </View>
     );
@@ -263,15 +277,18 @@ const ParentProfileScreen = observer(() => {
       return;
     }
     console.log('handleWhatsApp called with:', user);
-    const phone = user.phone;
+    const phone = toWhatsAppPhone(user.phone);
+    if (!phone) {
+      Alert.alert(t('common.error'), t('property.whatsappNotInstalled'));
+      return;
+    }
     const message = `Hello, I'm interested in the ${parent.title || parent.property_category}`;
-    const url = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(message)}`;
-    Linking.canOpenURL(url).then(supported => {
-      if (supported) {
-        Linking.openURL(url);
-      } else {
-        Alert.alert('Error', 'WhatsApp is not installed on your device');
-      }
+    const appUrl = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(message)}`;
+    const webUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    Linking.openURL(appUrl).catch(() => {
+      Linking.openURL(webUrl).catch(() => {
+        Alert.alert(t('common.error'), t('property.whatsappNotInstalled'));
+      });
     });
   };
 
@@ -336,7 +353,36 @@ const ParentProfileScreen = observer(() => {
 
     const parts = street ? [street, area, city, province] : [area, city, province];
     const formatted = parts.filter(Boolean).join(', ');
-    return formatted || 'Location not specified';
+    return formatted || t('property.locationNotSpecified');
+  };
+
+  const amenityTranslationKeyMap: Record<string, string> = {
+    Parking: 'property.parking',
+    'Security Guard': 'property.securityGuard',
+    'Central Heating System': 'property.centralHeatingSystem',
+    Cupboards: 'property.cupboards',
+    Sunny: 'property.sunny',
+    Basement: 'property.basement',
+    AC: 'property.ac',
+    Lift: 'property.lift',
+    Furnished: 'property.furnished',
+    'Semi-Furnished': 'property.semiFurnished',
+    'Solar Facility': 'property.solarFacility',
+    'Generator Facility': 'property.generatorFacility',
+    Electricity: 'property.electricity',
+    'Water Supply': 'property.waterSupply',
+    'Water supply': 'property.waterSupply',
+    Internet: 'property.internet',
+    internet: 'property.internet',
+    Gym: 'property.gym',
+    Pool: 'property.pool',
+    Garden: 'property.garden',
+    Gas: 'property.gas',
+  };
+
+  const localizeAmenity = (label: string) => {
+    const key = amenityTranslationKeyMap[label];
+    return key ? t(key) : label;
   };
 
   const renderFacility = (label: string) => {
@@ -347,7 +393,9 @@ const ParentProfileScreen = observer(() => {
     return (
       <View key={label} style={[styles.facilityItem, { backgroundColor: theme.card, borderColor: theme.border }]}>
         <IconProvider name={config.icon as any} size={20} color={theme.primary} />
-        <AppText variant="tiny" weight="medium" color={theme.text} style={{ marginTop: 6, textAlign: 'center' }} numberOfLines={1}>{label}</AppText>
+        <AppText variant="tiny" weight="medium" color={theme.text} style={{ marginTop: 6, textAlign: 'center' }} numberOfLines={1}>
+          {localizeAmenity(label)}
+        </AppText>
       </View>
     );
   };
@@ -436,7 +484,7 @@ const ParentProfileScreen = observer(() => {
                     if (!videoUrl) return;
                     setSelectedThumb({ type: 'video', index: 0 });
                     Linking.openURL(videoUrl).catch(() => {
-                      Alert.alert('Error', 'Unable to open this video');
+                      Alert.alert(t('common.error'), t('property.unableToOpenVideo'));
                     });
                   }}
                   style={[
@@ -522,7 +570,7 @@ const ParentProfileScreen = observer(() => {
                 weight={activeTab === 'features' ? "bold" : "regular"}
                 color={activeTab === 'features' ? theme.primary : theme.subtext}
               >
-                Features
+                {t('property.featuresTab')}
               </AppText>
             </TouchableOpacity>
             <TouchableOpacity 
@@ -534,7 +582,7 @@ const ParentProfileScreen = observer(() => {
                 weight={activeTab === 'available' ? "bold" : "regular"}
                 color={activeTab === 'available' ? theme.primary : theme.subtext}
               >
-                Available Homes ({availableUnits.length})
+                {t('property.availableHomes')} ({availableUnits.length})
               </AppText>
             </TouchableOpacity>
             {canViewAllProperties && (
@@ -547,7 +595,7 @@ const ParentProfileScreen = observer(() => {
                   weight={activeTab === 'allProperties' ? "bold" : "regular"}
                   color={activeTab === 'allProperties' ? theme.primary : theme.subtext}
                 >
-                  All Properties ({agentAddedUnits.length})
+                  {t('property.allProperties')} ({agentAddedUnits.length})
                 </AppText>
               </TouchableOpacity>
             )}
@@ -556,9 +604,9 @@ const ParentProfileScreen = observer(() => {
           {activeTab === 'features' ? (
             <>
               <View style={styles.section}>
-                <AppText variant="h3" weight="bold" color={theme.text} style={styles.sectionTitle}>About</AppText>
+                <AppText variant="h3" weight="bold" color={theme.text} style={styles.sectionTitle}>{t('property.about')}</AppText>
                 <AppText variant="body" color={theme.text} style={styles.description}>
-                  {parent.description || 'No description available.'}
+                  {parent.description || t('property.noDescriptionAvailable')}
                 </AppText>
               </View>
 
@@ -570,7 +618,7 @@ const ParentProfileScreen = observer(() => {
 
                 return (
                   <View style={styles.section}>
-                    <AppText variant="h3" weight="bold" color={theme.text} style={styles.sectionTitle}>Facilities</AppText>
+                    <AppText variant="h3" weight="bold" color={theme.text} style={styles.sectionTitle}>{t('property.facilities')}</AppText>
                     <View style={styles.facilitiesGrid}>
                       {allFacilities.map(label => renderFacility(label))}
                     </View>
@@ -582,10 +630,10 @@ const ParentProfileScreen = observer(() => {
               {parent.latitude && parent.longitude && (
                 <View style={styles.section}>
                   <View style={styles.sectionHeaderRow}>
-                    <AppText variant="h3" weight="bold" color={theme.text} style={styles.sectionTitle}>Location</AppText>
+                    <AppText variant="h3" weight="bold" color={theme.text} style={styles.sectionTitle}>{t('property.location')}</AppText>
                     <TouchableOpacity 
                       onPress={() => {
-                        const label = parent.title || 'Property Location';
+                        const label = parent.title || t('property.location');
                         const url = Platform.select({
                           ios: `maps:0,0?q=${label}@${parent.latitude},${parent.longitude}`,
                           android: `geo:0,0?q=${parent.latitude},${parent.longitude}(${label})`
@@ -593,7 +641,7 @@ const ParentProfileScreen = observer(() => {
                         if (url) Linking.openURL(url);
                       }}
                     >
-                      <AppText variant="body" weight="semiBold" color={theme.primary}>Open in Maps</AppText>
+                      <AppText variant="body" weight="semiBold" color={theme.primary}>{t('property.openInMaps')}</AppText>
                     </TouchableOpacity>
                   </View>
                   <AppText variant="small" weight="medium" color={theme.subtext} style={{ marginBottom: 16 }}>
@@ -603,7 +651,7 @@ const ParentProfileScreen = observer(() => {
                   <TouchableOpacity 
                     activeOpacity={0.9}
                     onPress={() => {
-                      const label = parent.title || 'Property Location';
+                      const label = parent.title || t('property.location');
                       const url = Platform.select({
                         ios: `maps:0,0?q=${label}@${parent.latitude},${parent.longitude}`,
                         android: `geo:0,0?q=${parent.latitude},${parent.longitude}(${label})`
@@ -644,14 +692,14 @@ const ParentProfileScreen = observer(() => {
                         <View style={styles.mapOverlay}>
                           <BlurView intensity={40} style={styles.mapOverlayBlur} tint="dark">
                             <Ionicons name="expand-outline" size={14} color="#fff" />
-                            <AppText variant="tiny" weight="bold" color="#fff" style={{ marginLeft: 4 }}>Tap to expand</AppText>
+                            <AppText variant="tiny" weight="bold" color="#fff" style={{ marginLeft: 4 }}>{t('property.tapToExpand')}</AppText>
                           </BlurView>
                         </View>
                       </>
                     ) : (
                       <View style={[styles.mapPlaceholder, { backgroundColor: theme.card }]}>
                         <Ionicons name="map-outline" size={32} color={theme.subtext} />
-                        <AppText variant="small" color={theme.subtext}>Map location available</AppText>
+                        <AppText variant="small" color={theme.subtext}>{t('property.mapNotAvailable')}</AppText>
                       </View>
                     )}
                   </TouchableOpacity>
@@ -661,7 +709,7 @@ const ParentProfileScreen = observer(() => {
               {/* Agent Information Card */}
               {listingUser && (
                 <View style={styles.section}>
-                  <AppText variant="h3" weight="bold" color={theme.text} style={styles.sectionTitle}>Agent Information</AppText>
+                  <AppText variant="h3" weight="bold" color={theme.text} style={styles.sectionTitle}>{t('property.agentInformation')}</AppText>
                   <TouchableOpacity 
                     style={[styles.agentCard, { backgroundColor: theme.card, borderColor: theme.border }]}
                     activeOpacity={0.7}
@@ -672,10 +720,10 @@ const ParentProfileScreen = observer(() => {
                         <Avatar user={listingUser} size="md" />
                         <View style={{ marginLeft: 12, flex: 1 }}>
                           <AppText variant="body" weight="bold" color={theme.text}>
-                            {listingUser?.full_name || 'Agent Name'}
+                            {listingUser?.full_name || t('people.agents')}
                           </AppText>
                           <AppText variant="caption" color={theme.subtext}>
-                            Tap to view profile
+                            {t('property.tapToViewProfile')}
                           </AppText>
                         </View>
                       </View>
@@ -711,7 +759,7 @@ const ParentProfileScreen = observer(() => {
             <View style={styles.section}>
               <View style={styles.unitsHeader}>
                 <AppText variant="h3" weight="bold" color={theme.text}>
-                  {activeTab === 'available' ? 'Available Homes' : 'All Properties'}
+                  {activeTab === 'available' ? t('property.availableHomes') : t('property.allProperties')}
                 </AppText>
                 {isOwner && (
                   <TouchableOpacity 
@@ -733,15 +781,15 @@ const ParentProfileScreen = observer(() => {
 
               <View style={[styles.homesSummaryCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
                 <View style={styles.homesSummaryRow}>
-                  <AppText variant="tiny" weight="bold" color={theme.subtext}>Showing</AppText>
+                  <AppText variant="tiny" weight="bold" color={theme.subtext}>{t('property.showing')}</AppText>
                   <AppText variant="small" weight="bold" color={theme.primary}>{filteredUnits.length}</AppText>
                   <AppText variant="tiny" weight="bold" color={theme.subtext}>
-                    {activeTab === 'available' ? 'available homes' : 'properties added by agent'}
+                    {activeTab === 'available' ? t('property.availableHomesLower') : t('property.propertiesAddedByAgent')}
                   </AppText>
                 </View>
               </View>
 
-              <AppText variant="tiny" weight="bold" color={theme.subtext} style={styles.filterLabel}>PROPERTY TYPE</AppText>
+              <AppText variant="tiny" weight="bold" color={theme.subtext} style={styles.filterLabel}>{t('property.propertyTypeUpper')}</AppText>
               <ScrollView 
                 horizontal 
                 showsHorizontalScrollIndicator={false} 
@@ -763,13 +811,13 @@ const ParentProfileScreen = observer(() => {
                       weight="bold" 
                       color={selectedType === type ? "#fff" : theme.subtext}
                     >
-                      {type}
+                      {getFilterTypeLabel(type)}
                     </AppText>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
 
-              <AppText variant="tiny" weight="bold" color={theme.subtext} style={styles.filterLabel}>BEDROOMS</AppText>
+              <AppText variant="tiny" weight="bold" color={theme.subtext} style={styles.filterLabel}>{t('property.bedroomsUpper')}</AppText>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -791,7 +839,7 @@ const ParentProfileScreen = observer(() => {
                       weight="bold"
                       color={selectedBeds === bed ? '#fff' : theme.subtext}
                     >
-                      {bed === 'ALL' ? 'All Beds' : bed === 'OTHERS' ? 'Others' : `${bed} Beds`}
+                      {bed === 'ALL' ? t('property.allBeds') : bed === 'OTHERS' ? t('property.others') : `${bed} ${t('property.beds')}`}
                     </AppText>
                   </TouchableOpacity>
                 ))}
@@ -823,7 +871,7 @@ const ParentProfileScreen = observer(() => {
                 <View style={[styles.emptyUnits, { backgroundColor: theme.card, borderColor: theme.border }]}>
                   <Ionicons name="home-outline" size={40} color={theme.border} />
                   <AppText variant="body" color={theme.subtext} style={{ marginTop: 10 }}>
-                    {activeTab === 'available' ? 'No available homes found.' : 'No properties added by this agent yet.'}
+                    {activeTab === 'available' ? t('property.noAvailableHomesFound') : t('property.noPropertiesAddedByAgent')}
                   </AppText>
                 </View>
               )}

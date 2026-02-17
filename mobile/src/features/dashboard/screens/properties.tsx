@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColor, useCurrentTheme } from '../../../hooks/useThemeColor';
 import ScreenLayout from '../../../components/ScreenLayout';
 import { BlurView } from 'expo-blur';
+import { useLanguage } from '../../../contexts/LanguageContext';
 
 const PriceRangeSlider = ({ min, max, onValueChange, themeColors }: any) => {
   const [width, setWidth] = useState(0);
@@ -128,6 +129,7 @@ const PropertiesScreen = observer(() => {
   const themeColors = useThemeColor();
   const currentTheme = useCurrentTheme();
   const insets = useSafeAreaInsets();
+  const { t } = useLanguage();
   const [showFilters, setShowFilters] = useState(false);
   const [agents, setAgents] = useState([]);
   const [viewMode, setViewMode] = useState<'default' | 'horizontal'>('default');
@@ -537,7 +539,16 @@ const PropertiesScreen = observer(() => {
                   </View>
                 </View>
                 
-                <View style={[styles.modernSearchContainer, { backgroundColor: themeColors.card }]}>
+                <View
+                  style={[
+                    styles.modernSearchContainer,
+                    {
+                      backgroundColor: themeColors.card,
+                      borderWidth: currentTheme === 'dark' ? 1.2 : 1,
+                      borderColor: currentTheme === 'dark' ? 'rgba(255,255,255,0.22)' : themeColors.border,
+                    },
+                  ]}
+                >
                   <View style={[styles.modernSearchIcon, { backgroundColor: themeColors.background }]}>
                     {searching ? (
                       <ActivityIndicator size="small" color={themeColors.primary} />
@@ -595,20 +606,20 @@ const PropertiesScreen = observer(() => {
                 contentContainerStyle={styles.premiumCategoryContainer}
               >
                 {[
-                  { name: 'All', type: 'all', value: 'all', icon: 'apps' },
-                  { name: 'House', type: 'property_type', value: 'house', icon: 'home-variant-outline' },
-                  { name: 'Apartment', type: 'property_type', value: 'apartment', icon: 'office-building-outline' },
-                  { name: 'Land', type: 'property_type', value: 'land', icon: 'map-outline' },
-                  { name: 'Shop', type: 'property_type', value: 'shop', icon: 'store-outline' },
-                  { name: 'Towers', type: 'property_category', value: 'tower', icon: 'city-variant-outline' },
-                  { name: 'Markets', type: 'property_category', value: 'market', icon: 'store' },
-                  { name: 'Sharaks', type: 'property_category', value: 'sharak', icon: 'home-group' },
+                  { name: t('common.all'), type: 'all', value: 'all', icon: 'apps' },
+                  { name: t('property.house'), type: 'property_type', value: 'house', icon: 'home-variant-outline' },
+                  { name: t('property.apartment'), type: 'property_type', value: 'apartment', icon: 'office-building-outline' },
+                  { name: t('property.land'), type: 'property_type', value: 'land', icon: 'map-outline' },
+                  { name: t('property.shop'), type: 'property_type', value: 'shop', icon: 'store-outline' },
+                  { name: t('property.towers'), type: 'property_category', value: 'tower', icon: 'city-variant-outline' },
+                  { name: t('property.markets'), type: 'property_category', value: 'market', icon: 'store' },
+                  { name: t('property.sharaks'), type: 'property_category', value: 'sharak', icon: 'home-group' },
                 ].map((cat) => {
                   const isActive = activeTab === cat.value;
 
                   return (
                     <TouchableOpacity 
-                      key={cat.name} 
+                      key={cat.value} 
                       onPress={() => {
                         setActiveTab(cat.value);
                       }}
@@ -1221,8 +1232,8 @@ const styles = StyleSheet.create({
   },
   modernSearchInput: {
     flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '400',
     padding: 0,
   },
   locationFilterBadge: {

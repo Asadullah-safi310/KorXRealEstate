@@ -27,7 +27,7 @@ export const ParentReelSection = ({ title, data, category, cardSizeScale = 1 }: 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <AppText variant="title" weight="bold" color={themeColors.text}>
+        <AppText variant="h2" weight="bold" color={themeColors.text} style={styles.sectionTitle}>
           {title}
         </AppText>
       </View>
@@ -61,6 +61,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  sectionTitle: {
+    letterSpacing: 0.2,
   },
   listContent: {
     paddingHorizontal: 20,

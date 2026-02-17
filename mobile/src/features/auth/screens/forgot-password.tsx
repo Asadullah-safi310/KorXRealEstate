@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import axiosInstance from '../../../api/axiosInstance';
 import { useThemeColor } from '../../../hooks/useThemeColor';
 import ScreenLayout from '../../../components/ScreenLayout';
 import { AppText } from '../../../components/AppText';
+import { useLanguage } from '../../../contexts/LanguageContext';
 
 
 const ForgotPasswordScreen = () => {
@@ -17,10 +18,26 @@ const ForgotPasswordScreen = () => {
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [timer, setTimer] = useState(0);
   const router = useRouter();
+  const { t } = useLanguage();
+
+  const isPasswordValid = newPassword.length >= 6;
+  const passwordValidationMessage = newPassword
+    ? (isPasswordValid
+      ? t('errors.passwordValid')
+      : 'Password must be at least 6 characters.')
+    : '';
+  const passwordValidationColor = isPasswordValid ? '#22c55e' : themeColors.danger;
+  const passwordMatched = confirmPassword.length > 0 && newPassword === confirmPassword;
+  const confirmValidationMessage = confirmPassword
+    ? (passwordMatched ? t('errors.passwordsMatch') : t('errors.passwordsDoNotMatch'))
+    : '';
+  const confirmValidationColor = passwordMatched ? '#22c55e' : themeColors.danger;
 
   useEffect(() => {
     let interval: any;
@@ -87,20 +104,23 @@ const ForgotPasswordScreen = () => {
 
   const handleResetPassword = async () => {
     if (newPassword !== confirmPassword) {
-      setError('Passwords do not match');
+      setError(t('errors.passwordsDoNotMatch'));
       return;
     }
-    if (newPassword.length < 6) {
-        setError('Password must be at least 6 characters');
+    if (!isPasswordValid) {
+        setError('Password must be at least 6 characters.');
         return;
     }
     setLoading(true);
     setError('');
     try {
-      await axiosInstance.post('/auth/reset-password', { identifier, otp, newPassword });
-      router.replace('/(auth)/login');
+      const response = await axiosInstance.post('/auth/reset-password', { identifier, otp, newPassword });
+      const successMessage = response?.data?.message || 'Your password has been reset successfully.';
+      Alert.alert('Success', successMessage, [
+        { text: 'OK', onPress: () => router.replace('/(auth)/login') }
+      ]);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Reset failed');
+      setError(err?.response?.data?.message || err?.message || 'Reset failed');
     } finally {
       setLoading(false);
     }
@@ -261,9 +281,21 @@ const ForgotPasswordScreen = () => {
                   placeholderTextColor={themeColors.subtext + '60'}
                   value={newPassword}
                   onChangeText={setNewPassword}
-                  secureTextEntry
+                  secureTextEntry={!showNewPassword}
                 />
+                <TouchableOpacity onPress={() => setShowNewPassword(!showNewPassword)} style={styles.eyeIcon}>
+                  <Ionicons
+                    name={showNewPassword ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color={themeColors.subtext}
+                  />
+                </TouchableOpacity>
               </View>
+              {passwordValidationMessage ? (
+                <AppText variant="caption" weight="medium" color={passwordValidationColor} style={{ marginLeft: 4 }}>
+                  {passwordValidationMessage}
+                </AppText>
+              ) : null}
             </View>
             <View style={styles.inputGroup}>
               <AppText variant="small" weight="bold" style={{ marginLeft: 4 }}>Confirm New Password</AppText>
@@ -275,9 +307,21 @@ const ForgotPasswordScreen = () => {
                   placeholderTextColor={themeColors.subtext + '60'}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
-                  secureTextEntry
+                  secureTextEntry={!showConfirmPassword}
                 />
+                <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeIcon}>
+                  <Ionicons
+                    name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color={themeColors.subtext}
+                  />
+                </TouchableOpacity>
               </View>
+              {confirmValidationMessage ? (
+                <AppText variant="caption" weight="medium" color={confirmValidationColor} style={{ marginLeft: 4 }}>
+                  {confirmValidationMessage}
+                </AppText>
+              ) : null}
             </View>
             <TouchableOpacity 
               style={[styles.primaryButton, { backgroundColor: themeColors.primary }]} 
@@ -409,6 +453,9 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: '500',
+  },
+  eyeIcon: {
+    padding: 4,
   },
   otpInput: {
     borderWidth: 1.5,

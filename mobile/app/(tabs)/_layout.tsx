@@ -10,6 +10,7 @@ import { useEffect } from 'react';
 import { springConfig } from '../../src/utils/animations';
 import filterStore from '../../src/stores/FilterStore';
 import authStore from '../../src/stores/AuthStore';
+import { useLanguage } from '../../src/contexts/LanguageContext';
 
 const TabIcon = ({ name, color, focused }: { name: any, color: string, focused: boolean }) => {
   const scale = useSharedValue(1);
@@ -40,6 +41,7 @@ export default observer(function TabLayout() {
   const themeColors = useThemeColor();
   const router = useRouter();
   const isAgentUser = authStore.user?.role === 'agent';
+  const { t } = useLanguage();
 
   return (
     <Tabs
@@ -66,7 +68,7 @@ export default observer(function TabLayout() {
       <Tabs.Screen
         name="dashboard"
         options={{
-          title: 'Home',
+          title: t('tabs.home'),
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name={focused ? "home" : "home-outline"} color={color} focused={focused} />
           ),
@@ -75,7 +77,7 @@ export default observer(function TabLayout() {
       <Tabs.Screen
         name="properties"
         options={{
-          title: 'Properties',
+          title: t('tabs.properties'),
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name={focused ? "business" : "business-outline"} color={color} focused={focused} />
           ),
@@ -86,7 +88,7 @@ export default observer(function TabLayout() {
       <Tabs.Screen
         name="create-property"
         options={{
-          title: 'Add',
+          title: t('tabs.add'),
           href: (isAuthenticated && authStore.hasPermission('ADD_PROPERTY')) ? '/(tabs)/create-property' : null,
           tabBarIcon: ({ color, focused }) => (
             <View style={[styles.fabContainer, { backgroundColor: themeColors.card }]}>
@@ -117,7 +119,7 @@ export default observer(function TabLayout() {
       <Tabs.Screen
         name="filters"
         options={{
-          title: filterStore.hasActiveFilters ? 'Reset' : 'Filters',
+          title: filterStore.hasActiveFilters ? t('tabs.reset') : t('tabs.filters'),
           tabBarIcon: ({ color, focused }) => (
             <TabIcon 
               name={filterStore.hasActiveFilters ? (focused ? "refresh" : "refresh-outline") : (focused ? "options" : "options-outline")} 
@@ -143,7 +145,7 @@ export default observer(function TabLayout() {
       <Tabs.Screen
         name="insights"
         options={{
-          title: 'Insights',
+          title: t('tabs.insights'),
           href: (isAuthenticated && !isAgentUser) ? '/(tabs)/insights' : null,
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name={focused ? "bulb" : "bulb-outline"} color={color} focused={focused} />
@@ -155,7 +157,7 @@ export default observer(function TabLayout() {
       <Tabs.Screen
         name="people"
         options={{
-          title: 'People',
+          title: t('tabs.people'),
           href: (isAdmin && !isAgentUser) ? '/(tabs)/people' : null,
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name={focused ? "people" : "people-outline"} color={color} focused={focused} />
@@ -167,7 +169,7 @@ export default observer(function TabLayout() {
       <Tabs.Screen
         name="menus"
         options={{
-          title: 'Menus',
+          title: t('tabs.menus'),
           href: !isAuthenticated ? '/(tabs)/menus' : null,
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name={focused ? "menu" : "menu-outline"} color={color} focused={focused} />
@@ -179,7 +181,7 @@ export default observer(function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: t('tabs.profile'),
           href: isAuthenticated ? '/(tabs)/profile' : null,
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name={focused ? "person" : "person-outline"} color={color} focused={focused} />

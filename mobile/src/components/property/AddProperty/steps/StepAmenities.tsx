@@ -5,12 +5,14 @@ import { useFormikContext } from 'formik';
 import { observer } from 'mobx-react-lite';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemeColor } from '../../../../hooks/useThemeColor';
+import { useLanguage } from '../../../../contexts/LanguageContext';
 
 const { width } = Dimensions.get('window');
 
 const StepAmenities = observer(() => {
   const { values, setFieldValue } = useFormikContext<any>();
   const theme = useThemeColor();
+  const { t } = useLanguage();
 
   const amenitiesList = [
     { label: 'Parking', icon: 'car-outline', provider: 'Ionicons' },
@@ -26,6 +28,35 @@ const StepAmenities = observer(() => {
     { label: 'Solar Facility', icon: 'solar-power-variant-outline', provider: 'MaterialCommunityIcons' },
     { label: 'Generator Facility', icon: 'engine-outline', provider: 'MaterialCommunityIcons' },
   ];
+
+  const amenityTranslationKeyMap: Record<string, string> = {
+    Parking: 'property.parking',
+    'Security Guard': 'property.securityGuard',
+    'Central Heating System': 'property.centralHeatingSystem',
+    Cupboards: 'property.cupboards',
+    Sunny: 'property.sunny',
+    Basement: 'property.basement',
+    AC: 'property.ac',
+    Lift: 'property.lift',
+    Furnished: 'property.furnished',
+    'Semi-Furnished': 'property.semiFurnished',
+    'Solar Facility': 'property.solarFacility',
+    'Generator Facility': 'property.generatorFacility',
+    Electricity: 'property.electricity',
+    'Water Supply': 'property.waterSupply',
+    'Water supply': 'property.waterSupply',
+    Internet: 'property.internet',
+    internet: 'property.internet',
+    Gym: 'property.gym',
+    Pool: 'property.pool',
+    Garden: 'property.garden',
+    Gas: 'property.gas',
+  };
+
+  const localizeAmenity = (label: string) => {
+    const key = amenityTranslationKeyMap[label];
+    return key ? t(key) : label;
+  };
 
   const toggleAmenity = (label: string) => {
     const currentAmenities = values.amenities || [];
@@ -66,7 +97,7 @@ const StepAmenities = observer(() => {
                   />
                 </View>
                 <AppText variant="tiny" weight="bold" color={isActive ? theme.text : theme.subtext} style={{ textAlign: 'center' }}>
-                  {item.label}
+                  {localizeAmenity(item.label)}
                 </AppText>
                 {isActive && (
                   <View style={[styles.checkBadge, { backgroundColor: theme.primary }]}>

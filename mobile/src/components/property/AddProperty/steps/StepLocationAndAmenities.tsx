@@ -14,10 +14,12 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { AppText } from '../../../AppText';
 import { locationService } from '../../../../services/location.service';
 import { AMENITY_ICONS } from '../../../../constants/Amenities';
+import { useLanguage } from '../../../../contexts/LanguageContext';
 
 const StepLocationAndAmenities = () => {
   const { values, setFieldValue, errors, touched } = useFormikContext<any>();
   const theme = useThemeColor();
+  const { t } = useLanguage();
   
   const [provinces, setProvinces] = useState<any[]>([]);
   const [districts, setDistricts] = useState<any[]>([]);
@@ -93,6 +95,35 @@ const StepLocationAndAmenities = () => {
     ...config,
   }));
 
+  const amenityTranslationKeyMap: Record<string, string> = {
+    Parking: 'property.parking',
+    'Security Guard': 'property.securityGuard',
+    'Central Heating System': 'property.centralHeatingSystem',
+    Cupboards: 'property.cupboards',
+    Sunny: 'property.sunny',
+    Basement: 'property.basement',
+    AC: 'property.ac',
+    Lift: 'property.lift',
+    Furnished: 'property.furnished',
+    'Semi-Furnished': 'property.semiFurnished',
+    'Solar Facility': 'property.solarFacility',
+    'Generator Facility': 'property.generatorFacility',
+    Electricity: 'property.electricity',
+    'Water Supply': 'property.waterSupply',
+    'Water supply': 'property.waterSupply',
+    Internet: 'property.internet',
+    internet: 'property.internet',
+    Gym: 'property.gym',
+    Pool: 'property.pool',
+    Garden: 'property.garden',
+    Gas: 'property.gas',
+  };
+
+  const localizeAmenity = (label: string) => {
+    const key = amenityTranslationKeyMap[label];
+    return key ? t(key) : label;
+  };
+
   const toggleAmenity = (label: string) => {
     const current = values.amenities || [];
     if (current.includes(label)) {
@@ -132,7 +163,7 @@ const StepLocationAndAmenities = () => {
               >
                 <IconProvider name={item.icon as any} size={20} color={isActive ? theme.primary : theme.subtext} />
                 <AppText variant="tiny" weight="bold" style={{ color: isActive ? theme.primary : theme.text, marginLeft: 8 }}>
-                  {item.label}
+                  {localizeAmenity(item.label)}
                 </AppText>
               </TouchableOpacity>
             );
@@ -273,7 +304,7 @@ const StepLocationAndAmenities = () => {
               >
                 <IconProvider name={item.icon as any} size={24} color={isActive ? theme.primary : theme.subtext} />
                 <AppText variant="tiny" weight="semiBold" style={{ color: theme.text, marginTop: 8, textAlign: 'center' }}>
-                  {item.label}
+                  {localizeAmenity(item.label)}
                 </AppText>
                 {isActive && (
                   <View style={[styles.checkBadge, { backgroundColor: theme.primary }]}>

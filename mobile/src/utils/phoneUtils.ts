@@ -30,3 +30,27 @@ export const isAfghanPhoneValid = (value: string) => {
   const normalized = normalizeAfghanPhone(value);
   return normalized.length === 10;
 };
+
+export const toWhatsAppPhone = (
+  value: string | number | null | undefined,
+  defaultCountryCode: string = '93'
+) => {
+  if (value == null) return '';
+  const rawValue = String(value);
+  if (!rawValue.trim()) return '';
+
+  const afghanNormalized = normalizeAfghanPhone(rawValue);
+  if (isAfghanPhoneValid(afghanNormalized)) {
+    // Convert local Afghan format (0XXXXXXXXX) to international digits (93XXXXXXXXX)
+    return `${defaultCountryCode}${afghanNormalized.slice(1)}`;
+  }
+
+  let digits = rawValue.replace(/\D/g, '');
+  if (!digits) return '';
+
+  if (digits.startsWith('00')) {
+    digits = digits.slice(2);
+  }
+
+  return digits;
+};
