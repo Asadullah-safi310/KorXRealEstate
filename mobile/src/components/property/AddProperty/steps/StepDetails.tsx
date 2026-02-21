@@ -209,7 +209,7 @@ const StepDetails = () => {
   };
 
   const { isInherited, isAddingChild, normalizedCategory } = React.useMemo(() => {
-    const addingChild = !!(values.parent_property_id || values.parentId || values.apartment_id) || 
+    const addingChild = !!(values.parent_id || values.parentId || values.apartment_id) || 
                           (!values.is_parent && values.property_category && values.property_category !== 'normal');
     
     const rawCategory = (values.property_category || 'normal').toLowerCase();
@@ -222,7 +222,7 @@ const StepDetails = () => {
       isAddingChild: addingChild,
       normalizedCategory: normCat
     };
-  }, [values.parent_property_id, values.parentId, values.apartment_id, values.is_parent, values.property_category]);
+  }, [values.parent_id, values.parentId, values.apartment_id, values.is_parent, values.property_category]);
 
   const showBedBath = !values.is_parent && !isInherited && (values.property_type === 'house' || values.property_type === 'apartment');
   const showUnitFields = isAddingChild && (values.property_type === 'apartment' || values.property_type === 'shop' || values.property_type === 'office');
@@ -621,3 +621,4 @@ const styles = StyleSheet.create({
 });
 
 export default StepDetails;
+

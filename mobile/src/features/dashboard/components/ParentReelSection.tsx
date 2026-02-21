@@ -64,6 +64,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     letterSpacing: 0.2,
+    fontFamily: 'Poppins-Bold',
   },
   listContent: {
     paddingHorizontal: 20,

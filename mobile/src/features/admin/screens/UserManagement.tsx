@@ -24,6 +24,12 @@ const UserManagement = observer(() => {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [availablePermissions, setAvailablePermissions] = useState<any[]>([]);
   const [userPermissions, setUserPermissions] = useState<string[]>([]);
+  const [containerLimits, setContainerLimits] = useState<{ tower: string; market: string; sharak: string }>({
+    tower: '',
+    market: '',
+    sharak: '',
+  });
+  const [loadingLimits, setLoadingLimits] = useState(false);
   const [savingPermissions, setSavingPermissions] = useState(false);
 
   const fetchUsers = useCallback(async (pageNum = 1, shouldAppend = false) => {
@@ -73,6 +79,22 @@ const UserManagement = observer(() => {
   const handleManagePermissions = async (user: any) => {
     setSelectedUser(user);
     setUserPermissions(user.permissions || []);
+    setLoadingLimits(true);
+    try {
+      const response = await adminService.getUserContainerLimits(user.user_id);
+      const limits = response.data?.limits || {};
+      setContainerLimits({
+        tower: limits.tower == null ? '' : String(limits.tower),
+        market: limits.market == null ? '' : String(limits.market),
+        sharak: limits.sharak == null ? '' : String(limits.sharak),
+      });
+    } catch (error) {
+      console.error('Failed to fetch container limits:', error);
+      setContainerLimits({ tower: '', market: '', sharak: '' });
+      Alert.alert('Error', 'Failed to load container limits');
+    } finally {
+      setLoadingLimits(false);
+    }
     setPermissionModalVisible(true);
   };
 
@@ -88,15 +110,31 @@ const UserManagement = observer(() => {
 
   const handleSavePermissions = async () => {
     if (!selectedUser) return;
+
+    const parseLimit = (value: string, label: string): number | null => {
+      if (!value || value.trim() === '') return null;
+      const parsed = Number(value);
+      if (!Number.isInteger(parsed) || parsed < 1) {
+        throw new Error(`${label} limit must be a positive number or left empty for unlimited`);
+      }
+      return parsed;
+    };
     
     setSavingPermissions(true);
     try {
       await adminService.updateUserPermissions(selectedUser.user_id, userPermissions);
+      await adminService.updateUserContainerLimits(selectedUser.user_id, {
+        tower: parseLimit(containerLimits.tower, 'Tower'),
+        market: parseLimit(containerLimits.market, 'Market'),
+        sharak: parseLimit(containerLimits.sharak, 'Sharak'),
+      });
       setPermissionModalVisible(false);
       fetchUsers(1);
-      Alert.alert('Success', 'Permissions updated successfully');
+      Alert.alert('Success', 'Permissions and limits updated successfully');
     } catch (error) {
-      Alert.alert('Error', 'Failed to update permissions');
+      const message =
+        error instanceof Error ? error.message : 'Failed to update permissions and limits';
+      Alert.alert('Error', message);
     } finally {
       setSavingPermissions(false);
     }
@@ -314,7 +352,7 @@ const UserManagement = observer(() => {
               <ScrollView style={styles.permissionsList}>
                 {availablePermissions.map((permission) => (
                   <TouchableOpacity
-                    key={permission.key}
+                    key={`${String(permission.key)}-${permission.label}`}
                     style={[styles.permissionItem, { borderColor: themeColors.border }]}
                     onPress={() => togglePermission(permission.key)}
                   >
@@ -331,6 +369,55 @@ const UserManagement = observer(() => {
                     </View>
                   </TouchableOpacity>
                 ))}
+
+                <View style={[styles.limitSection, { borderColor: themeColors.border }]}>
+                  <AppText variant="body" weight="bold">Container Limits (blank = unlimited)</AppText>
+                  {loadingLimits ? (
+                    <ActivityIndicator size="small" color={themeColors.primary} style={{ marginTop: 12 }} />
+                  ) : (
+                    <View style={styles.limitInputsWrap}>
+                      <View style={styles.limitInputRow}>
+                        <AppText variant="caption" color={themeColors.subtext} style={styles.limitLabel}>Towers</AppText>
+                        <TextInput
+                          value={containerLimits.tower}
+                          onChangeText={(value) =>
+                            setContainerLimits((prev) => ({ ...prev, tower: value.replace(/[^0-9]/g, '') }))
+                          }
+                          keyboardType="numeric"
+                          placeholder="Unlimited"
+                          placeholderTextColor={themeColors.subtext}
+                          style={[styles.limitInput, { color: themeColors.text, borderColor: themeColors.border, backgroundColor: themeColors.background }]}
+                        />
+                      </View>
+                      <View style={styles.limitInputRow}>
+                        <AppText variant="caption" color={themeColors.subtext} style={styles.limitLabel}>Markets</AppText>
+                        <TextInput
+                          value={containerLimits.market}
+                          onChangeText={(value) =>
+                            setContainerLimits((prev) => ({ ...prev, market: value.replace(/[^0-9]/g, '') }))
+                          }
+                          keyboardType="numeric"
+                          placeholder="Unlimited"
+                          placeholderTextColor={themeColors.subtext}
+                          style={[styles.limitInput, { color: themeColors.text, borderColor: themeColors.border, backgroundColor: themeColors.background }]}
+                        />
+                      </View>
+                      <View style={styles.limitInputRow}>
+                        <AppText variant="caption" color={themeColors.subtext} style={styles.limitLabel}>Sharaks</AppText>
+                        <TextInput
+                          value={containerLimits.sharak}
+                          onChangeText={(value) =>
+                            setContainerLimits((prev) => ({ ...prev, sharak: value.replace(/[^0-9]/g, '') }))
+                          }
+                          keyboardType="numeric"
+                          placeholder="Unlimited"
+                          placeholderTextColor={themeColors.subtext}
+                          style={[styles.limitInput, { color: themeColors.text, borderColor: themeColors.border, backgroundColor: themeColors.background }]}
+                        />
+                      </View>
+                    </View>
+                  )}
+                </View>
               </ScrollView>
 
               <View style={styles.modalActions}>
@@ -488,6 +575,32 @@ const styles = StyleSheet.create({
   permissionInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  limitSection: {
+    marginTop: 18,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    paddingBottom: 8,
+  },
+  limitInputsWrap: {
+    marginTop: 12,
+    gap: 10,
+  },
+  limitInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  limitLabel: {
+    width: 64,
+  },
+  limitInput: {
+    flex: 1,
+    height: 42,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    fontSize: 14,
   },
   modalActions: {
     flexDirection: 'row',

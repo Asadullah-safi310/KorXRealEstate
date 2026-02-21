@@ -28,7 +28,7 @@ const StepLocationAndAmenities = () => {
   const [loadingDistricts, setLoadingDistricts] = useState(false);
   const [loadingAreas, setLoadingAreas] = useState(false);
 
-  const isInherited = !!(values.parent_property_id || values.parentId || values.apartment_id);
+  const isInherited = !!(values.parent_id || values.parentId || values.apartment_id);
 
   useEffect(() => {
     if (!isInherited) {
@@ -429,3 +429,4 @@ const styles = StyleSheet.create({
 });
 
 export default StepLocationAndAmenities;
+

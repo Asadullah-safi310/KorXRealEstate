@@ -9,6 +9,7 @@ const Area = require('./Area');
 const OTP = require('./OTP');
 const UserPermission = require('./UserPermission');
 const NearbyCache = require('./NearbyCache');
+const AgentContainerLimit = require('./AgentContainerLimit');
 
 // --- User & Person Associations ---
 User.hasOne(Person, { foreignKey: 'user_id', as: 'PersonProfile' });
@@ -19,6 +20,9 @@ OTP.belongsTo(User, { foreignKey: 'user_id', as: 'User' });
 
 User.hasMany(UserPermission, { foreignKey: 'user_id', as: 'Permissions' });
 UserPermission.belongsTo(User, { foreignKey: 'user_id', as: 'User' });
+
+User.hasMany(AgentContainerLimit, { foreignKey: 'user_id', as: 'ContainerLimits' });
+AgentContainerLimit.belongsTo(User, { foreignKey: 'user_id', as: 'User' });
 
 // --- Property Associations ---
 Property.belongsTo(Person, { foreignKey: 'owner_person_id', as: 'Owner' });
@@ -77,4 +81,5 @@ module.exports = {
   OTP,
   UserPermission,
   NearbyCache,
+  AgentContainerLimit,
 };

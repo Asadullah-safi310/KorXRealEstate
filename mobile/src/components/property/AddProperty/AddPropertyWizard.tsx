@@ -92,7 +92,7 @@ const WizardInner = observer(({ onFinish, isEditing, propertyId, currentStep, se
       console.log('========== SUBMIT LISTING START ==========');
       console.log('Raw values:', JSON.stringify(values, null, 2));
       
-      const isInherited = !!(values.parent_property_id || values.parentId || values.apartment_id);
+      const isInherited = !!(values.parent_id || values.parentId || values.apartment_id);
       
       // Building details object for backend
       const details: any = {};
@@ -108,7 +108,7 @@ const WizardInner = observer(({ onFinish, isEditing, propertyId, currentStep, se
         }
       }
 
-      const parentPropertyId = values.parent_property_id || values.parentId || values.apartment_id;
+      const parentPropertyId = values.parent_id || values.parentId || values.apartment_id;
       const isContainer = !!values.is_parent;
       const isChild = !!parentPropertyId;
       
@@ -172,7 +172,6 @@ const WizardInner = observer(({ onFinish, isEditing, propertyId, currentStep, se
         record_kind: isContainer ? 'container' : 'listing',
         property_category: (isContainer || isChild) ? finalCategory : undefined,
         is_parent: isContainer, // true for containers, false for listings (child or standalone)
-        parent_property_id: parentPropertyId || null,
         parent_id: parentPropertyId || null,
         facilities: values.amenities || [],
         amenities: values.amenities || [],
@@ -183,8 +182,7 @@ const WizardInner = observer(({ onFinish, isEditing, propertyId, currentStep, se
         rent_price: isContainer ? null : (values.for_rent ? sanitizeInt(values.rent_price) : null),
         is_available_for_sale: isContainer ? false : !!values.for_sale,
         is_available_for_rent: isContainer ? false : !!values.for_rent,
-        address: prefer(values.address, inheritedLocation?.address) || prefer(values.location, inheritedLocation?.location) || '',
-        location: prefer(values.location, inheritedLocation?.location) || prefer(values.address, inheritedLocation?.address) || '',
+        address: prefer(values.address, inheritedLocation?.address) || '',
         latitude: prefer(values.latitude, inheritedLocation?.latitude) || null,
         longitude: prefer(values.longitude, inheritedLocation?.longitude) || null,
         province_id: sanitizeInt(prefer(values.province_id, inheritedLocation?.province_id)),
@@ -207,11 +205,11 @@ const WizardInner = observer(({ onFinish, isEditing, propertyId, currentStep, se
           await propertyStore.updateProperty(id, payload);
         }
         console.log('✓ Update successful');
-      } else if (payload.parent_property_id) {
+      } else if (payload.parent_id) {
         console.log('========== SUBMITTING CHILD UNIT (Wizard) ==========');
-        console.log('Parent ID:', payload.parent_property_id);
+        console.log('Parent ID:', payload.parent_id);
         console.log('Payload:', JSON.stringify(payload, null, 2));
-        const response = await propertyStore.addChildProperty(payload.parent_property_id, payload);
+        const response = await propertyStore.addChildProperty(payload.parent_id, payload);
         console.log('Submission response:', response);
         id = response.property_id || response.id;
         console.log('Extracted ID:', id);
@@ -245,14 +243,26 @@ const WizardInner = observer(({ onFinish, isEditing, propertyId, currentStep, se
         { text: 'OK', onPress: () => onFinish ? onFinish() : router.back() }
       ]);
     } catch (error: any) {
-      console.error('========== SUBMISSION ERROR (Wizard) ==========');
-      console.error('Error:', error);
-      console.error('Error response data:', error?.response?.data);
-      console.error('Error message:', error?.message);
-      console.error('Error status:', error?.response?.status);
-      
-      const errorMsg = error?.response?.data?.error || error?.message || 'Failed to save property. Please check required fields.';
-      Alert.alert('Submission Error', Array.isArray(errorMsg) ? errorMsg.join(', ') : errorMsg);
+      const status = error?.response?.status;
+      const backendError = error?.response?.data?.error || error?.response?.data?.message;
+
+      let userMessage = 'Failed to save property. Please check required fields and try again.';
+
+      if (status === 403 && typeof backendError === 'string') {
+        if (backendError.toLowerCase().includes('creation limit reached')) {
+          userMessage = backendError;
+        } else if (backendError.toLowerCase().includes('not authorized') || backendError.toLowerCase().includes('access denied')) {
+          userMessage = 'You do not have permission to perform this action. Please contact admin.';
+        } else {
+          userMessage = backendError;
+        }
+      } else if (typeof backendError === 'string' && backendError.trim().length > 0) {
+        userMessage = backendError;
+      } else if (Array.isArray(backendError)) {
+        userMessage = backendError.join(', ');
+      }
+
+      Alert.alert('Unable to Save', userMessage);
     } finally {
       setLoading(false);
     }
@@ -394,7 +404,7 @@ const AddPropertyWizard = observer(({ initial, isEditing, propertyId, onFinish, 
   const values = initial || initialValues;
   const isInheritedChildFlow =
     !!isAddingChild ||
-    !!values.parent_property_id ||
+    !!values.parent_id ||
     !!values.parentId ||
     !!values.apartment_id;
   const isParentContainerFlow =
@@ -490,3 +500,4 @@ const styles = StyleSheet.create({
 });
 
 export default AddPropertyWizard;
+

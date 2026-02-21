@@ -146,12 +146,12 @@ const DealDetailsScreen = observer(() => {
         </View>
         <View style={styles.propertyDetails}>
           <Text style={[styles.propertyTitle, { color: theme.text }]} numberOfLines={1}>
-            {deal.Property?.property_type} in {deal.Property?.city}
+            {deal.Property?.property_type} in {deal.Property?.DistrictData?.name || deal.Property?.ProvinceData?.name || 'N/A'}
           </Text>
           <View style={styles.locationRow}>
             <Ionicons name="location" size={14} color={theme.subtext} />
             <Text style={[styles.propertyLocation, { color: theme.subtext }]} numberOfLines={1}>
-              {deal.Property?.location}
+              {deal.Property?.address || 'Address not set'}
             </Text>
           </View>
         </View>

@@ -162,8 +162,15 @@ const StepLocation = () => {
     return null;
   };
 
+  const parseCoordinateInput = (raw: string): number | null => {
+    const normalized = raw.replace(',', '.').trim();
+    if (!normalized) return null;
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
   const isMapAvailable = Platform.OS !== 'web' && MapView;
-  const isInherited = values.parent_property_id || values.apartment_id;
+  const isInherited = values.parent_id || values.apartment_id;
 
   if (isInherited) {
     return (
@@ -309,10 +316,10 @@ const StepLocation = () => {
         <View style={{ flex: 1 }}>
           <AnimatedFormInput
             label="Latitude"
-            placeholder="0.000000"
-            keyboardType="numeric"
-            value={values.latitude ? String(values.latitude) : ''}
-            onChangeText={(v) => setFieldValue('latitude', parseFloat(v) || null)}
+            placeholder="e.g. 34.234565"
+            keyboardType="decimal-pad"
+            value={values.latitude !== null && values.latitude !== undefined ? String(values.latitude) : ''}
+            onChangeText={(v) => setFieldValue('latitude', parseCoordinateInput(v))}
             error={errors.latitude as string}
             touched={touched.latitude}
           />
@@ -320,10 +327,10 @@ const StepLocation = () => {
         <View style={{ flex: 1 }}>
           <AnimatedFormInput
             label="Longitude"
-            placeholder="0.000000"
-            keyboardType="numeric"
-            value={values.longitude ? String(values.longitude) : ''}
-            onChangeText={(v) => setFieldValue('longitude', parseFloat(v) || null)}
+            placeholder="e.g. 64.34325769"
+            keyboardType="decimal-pad"
+            value={values.longitude !== null && values.longitude !== undefined ? String(values.longitude) : ''}
+            onChangeText={(v) => setFieldValue('longitude', parseCoordinateInput(v))}
             error={errors.longitude as string}
             touched={touched.longitude}
           />
@@ -500,3 +507,4 @@ const styles = StyleSheet.create({
 });
 
 export default StepLocation;
+

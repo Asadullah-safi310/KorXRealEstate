@@ -71,12 +71,12 @@ export const ParentReelCard = ({ item, onPress, sizeScale = 1 }: ParentReelCardP
           <AppText variant="title" weight="bold" color="#FFFFFF" numberOfLines={2} style={styles.communityTitle}>
             {item.title}
           </AppText>
-          <AppText variant="small" weight="semiBold" color="rgba(255,255,255,0.92)">
+          <AppText variant="small" weight="semiBold" color="rgba(255,255,255,0.92)" style={styles.bodyText}>
             {item.availableUnits || 0} homes available
           </AppText>
         </View>
         <View style={styles.viewButton}>
-          <AppText variant="caption" weight="bold" color="#111827">
+          <AppText variant="caption" weight="bold" color="#111827" style={styles.bodyText}>
             View
           </AppText>
         </View>
@@ -117,6 +117,7 @@ export const ParentReelCard = ({ item, onPress, sizeScale = 1 }: ParentReelCardP
           variant="caption" 
           weight="medium" 
           color="rgba(255,255,255,0.9)"
+          style={styles.bodyText}
         >
           Available {unitLabel}: {item.availableUnits || 0}
         </AppText>
@@ -147,6 +148,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     lineHeight: 30,
     marginBottom: 6,
+    fontFamily: 'Poppins-semiBold',
   },
   communityImage: {
     width: '100%',
@@ -202,8 +204,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 15,
     marginBottom: 2,
+    fontFamily: 'Poppins-semiBold',
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
+  },
+  bodyText: {
+    fontFamily: 'Inter-Medium',
   },
 });

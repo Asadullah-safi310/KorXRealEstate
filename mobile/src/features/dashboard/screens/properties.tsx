@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Modal, ScrollView, RefreshControl, PanResponder, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Modal, ScrollView, RefreshControl, PanResponder, TextInput, StatusBar as RNStatusBar, Platform } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import propertyStore from '../../../stores/PropertyStore';
 import { propertyService } from '../../../services/property.service';
 import authStore from '../../../stores/AuthStore';
@@ -14,6 +14,7 @@ import { useThemeColor, useCurrentTheme } from '../../../hooks/useThemeColor';
 import ScreenLayout from '../../../components/ScreenLayout';
 import { BlurView } from 'expo-blur';
 import { useLanguage } from '../../../contexts/LanguageContext';
+import { StatusBar } from 'expo-status-bar';
 
 const PriceRangeSlider = ({ min, max, onValueChange, themeColors }: any) => {
   const [width, setWidth] = useState(0);
@@ -142,7 +143,6 @@ const PropertiesScreen = observer(() => {
   const [inheritedChildren, setInheritedChildren] = useState<any[]>([]);
   
   const [filters, setFilters] = useState({
-    city: (params.city as string) || '',
     province_id: (params.province_id as string) || '',
     district_id: (params.district_id as string) || '',
     area_id: (params.area_id as string) || '',
@@ -152,6 +152,7 @@ const PropertiesScreen = observer(() => {
     property_type: '',
     record_kind: '',
     property_category: '',
+    status: '',
     purpose: params.type === 'Rent/PG' ? 'rent' : params.type === 'Buy' ? 'sale' : '',
     min_price: '',
     max_price: '',
@@ -166,6 +167,17 @@ const PropertiesScreen = observer(() => {
     setTempFilters(filters);
   }, [filters, showFilters]);
 
+  useFocusEffect(
+    useCallback(() => {
+      RNStatusBar.setHidden(false, 'fade');
+      RNStatusBar.setBarStyle('light-content');
+      if (Platform.OS === 'android') {
+        RNStatusBar.setTranslucent(true);
+        RNStatusBar.setBackgroundColor('rgba(0,0,0,0.36)');
+      }
+    }, [])
+  );
+
   const updateTempFilter = (name: string, value: string) => {
     setTempFilters(prev => ({ ...prev, [name]: value }));
   };
@@ -176,7 +188,7 @@ const PropertiesScreen = observer(() => {
   };
 
   useEffect(() => {
-    if (params.province_id || params.district_id || params.area_id || params.type || params.city) {
+    if (params.province_id || params.district_id || params.area_id || params.type) {
       setFilters(prev => ({
         ...prev,
         province_id: (params.province_id as string) || '',
@@ -185,11 +197,10 @@ const PropertiesScreen = observer(() => {
         province_name: (params.province_name as string) || '',
         district_name: (params.district_name as string) || '',
         area_name: (params.area_name as string) || '',
-        city: (params.city as string) || '',
         purpose: params.type === 'Rent/PG' ? 'rent' : params.type === 'Buy' ? 'sale' : '',
       }));
     }
-  }, [params.province_id, params.district_id, params.area_id, params.type, params.province_name, params.district_name, params.area_name, params.city]);
+  }, [params.province_id, params.district_id, params.area_id, params.type, params.province_name, params.district_name, params.area_name]);
 
   const fetchAgents = useCallback(async () => {
     try {
@@ -217,9 +228,10 @@ const PropertiesScreen = observer(() => {
     try {
       const queryParams: any = { ...filters };
       
-      // Add search query if provided
+      // "Find in page" behavior for admin: keep searching local on loaded results.
+      // For other users, keep backend search.
       const currentSearch = searchText !== undefined ? searchText : searchQuery;
-      if (currentSearch && currentSearch.trim()) {
+      if (!authStore.isAdmin && currentSearch && currentSearch.trim()) {
         queryParams.search = currentSearch.trim();
       }
       
@@ -237,7 +249,9 @@ const PropertiesScreen = observer(() => {
       } else {
         // When 'all' is selected, remove these filters
         delete queryParams.property_type;
-        delete queryParams.record_kind;
+        if (!filters.record_kind) {
+          delete queryParams.record_kind;
+        }
         delete queryParams.property_category;
       }
       
@@ -267,7 +281,11 @@ const PropertiesScreen = observer(() => {
         delete queryParams.max_price;
       }
 
-      queryParams.status = 'active';
+      if (authStore.isAdmin && filters.status) {
+        queryParams.status = filters.status;
+      } else {
+        queryParams.status = 'active';
+      }
 
       delete queryParams.province_name;
       delete queryParams.district_name;
@@ -307,11 +325,22 @@ const PropertiesScreen = observer(() => {
         return;
       }
 
+      const parentSubset = parents.slice(0, 20);
       const childLists = await Promise.all(
-        parents.slice(0, 20).map((p: any) => propertyService.getPublicPropertyChildren(p.property_id))
+        parentSubset.map((p: any) => propertyService.getPublicPropertyChildren(p.property_id))
       );
       const children = childLists
-        .flatMap((r: any) => r?.data || [])
+        .flatMap((r: any, index: number) => {
+          const parent = parentSubset[index];
+          const parentTitle = parent?.title || parent?.property_code || parent?.property_type || '';
+          return (r?.data || []).map((child: any) => ({
+            ...child,
+            // Preserve parent context so local search can match by container name.
+            Parent: child?.Parent || (parent ? { property_id: parent.property_id, title: parent.title, property_type: parent.property_type } : undefined),
+            parent_title: child?.parent_title || parentTitle,
+            parent_name: child?.parent_name || parentTitle,
+          }));
+        })
         .filter(Boolean);
 
       const matchesActiveTab = (item: any) => {
@@ -354,6 +383,12 @@ const PropertiesScreen = observer(() => {
 
   // Debounced search effect
   useEffect(() => {
+    if (authStore.isAdmin) {
+      // Ctrl+F-like behavior: do not hit backend while typing for admin.
+      setSearching(false);
+      return;
+    }
+
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
@@ -399,7 +434,6 @@ const PropertiesScreen = observer(() => {
     setActiveTab('all');
     setInheritedChildren([]);
     setFilters({
-      city: '',
       province_id: '',
       district_id: '',
       area_id: '',
@@ -409,6 +443,7 @@ const PropertiesScreen = observer(() => {
       property_type: '',
       record_kind: '',
       property_category: '',
+      status: '',
       purpose: '',
       min_price: '',
       max_price: '',
@@ -417,7 +452,6 @@ const PropertiesScreen = observer(() => {
       agent_id: '',
     });
     setTempFilters({
-      city: '',
       province_id: '',
       district_id: '',
       area_id: '',
@@ -427,6 +461,7 @@ const PropertiesScreen = observer(() => {
       property_type: '',
       record_kind: '',
       property_category: '',
+      status: '',
       purpose: '',
       min_price: '',
       max_price: '',
@@ -447,6 +482,8 @@ const PropertiesScreen = observer(() => {
 
   const hasActiveFilters = () => {
     return searchQuery !== '' ||
+           filters.record_kind !== '' ||
+           filters.status !== '' ||
            filters.purpose !== '' || 
            filters.min_price !== '' || 
            filters.max_price !== '' || 
@@ -463,7 +500,51 @@ const PropertiesScreen = observer(() => {
     return [...base, ...extra];
   }, [propertyStore.properties, inheritedChildren]);
 
-  const filteredCount = displayProperties.length;
+  const findFilteredProperties = useMemo(() => {
+    const term = searchQuery.trim().toLowerCase();
+    if (!term) return displayProperties;
+    const extractPersonNames = (person: any) => {
+      if (!person) return [];
+      return [
+        person?.full_name,
+        person?.name,
+        person?.username,
+        person?.first_name,
+        person?.last_name,
+      ].filter(Boolean);
+    };
+    return displayProperties.filter((item: any) => {
+      const haystack = [
+        item?.title,
+        item?.property_code,
+        item?.address,
+        item?.Parent?.title,
+        item?.Parent?.property_type,
+        item?.parent?.title,
+        item?.parent?.name,
+        item?.parent_title,
+        item?.parent_name,
+        item?.AreaData?.name,
+        item?.DistrictData?.name,
+        item?.ProvinceData?.name,
+        ...extractPersonNames(item?.Agent),
+        ...extractPersonNames(item?.agent),
+        ...extractPersonNames(item?.Creator),
+        ...extractPersonNames(item?.Owner),
+        ...extractPersonNames(item?.owner),
+        ...extractPersonNames(item?.current_owner),
+        ...extractPersonNames(item?.currentOwner),
+        item?.owner_name,
+        item?.agent_name,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(term);
+    });
+  }, [displayProperties, searchQuery]);
+
+  const filteredCount = findFilteredProperties.length;
   const filteredCountLabel = `${filteredCount} ${filteredCount === 1 ? 'property' : 'properties'} found`;
 
   return (
@@ -472,6 +553,7 @@ const PropertiesScreen = observer(() => {
       bottomSpacing={0}
       edges={['left', 'right']}
     >
+      <StatusBar style="light" translucent backgroundColor="rgba(0,0,0,0.36)" hidden={false} />
       {propertyStore.error && (
         <View style={[styles.errorBox, { backgroundColor: themeColors.danger + '10', borderColor: themeColors.danger + '20' }]}>
           <Text style={[styles.errorText, { color: themeColors.danger }]}>{propertyStore.error}</Text>
@@ -482,7 +564,7 @@ const PropertiesScreen = observer(() => {
       )}
 
       <FlatList
-          data={displayProperties}
+          data={findFilteredProperties}
           nestedScrollEnabled
           ListHeaderComponent={
             <View style={styles.listHeader}>
@@ -559,7 +641,7 @@ const PropertiesScreen = observer(() => {
                   </View>
                   <TextInput
                     style={[styles.modernSearchInput, { color: themeColors.text }]}
-                    placeholder="Search by title, code, location, agent..."
+                    placeholder="Search by title, code, address, agent..."
                     placeholderTextColor={themeColors.subtext}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
@@ -578,7 +660,7 @@ const PropertiesScreen = observer(() => {
                   )}
                 </View>
                 
-                {(filters.city || filters.province_name || filters.district_name || filters.area_name) && (
+                {(filters.province_name || filters.district_name || filters.area_name) && (
                   <View style={[styles.locationFilterBadge, { backgroundColor: themeColors.card }]}>
                     <Ionicons name="location" size={14} color={themeColors.primary} />
                     <Text style={[styles.locationFilterText, { color: themeColors.text }]} numberOfLines={1}>
@@ -588,7 +670,7 @@ const PropertiesScreen = observer(() => {
                         `${filters.province_name} > ${filters.district_name}`
                       ) : filters.province_name ? (
                         filters.province_name
-                      ) : filters.city}
+                      ) : ''}
                     </Text>
                     <TouchableOpacity 
                       onPress={clearFilters}
@@ -651,7 +733,7 @@ const PropertiesScreen = observer(() => {
                 </Text>
               </View>
 
-              {propertyStore.loading && displayProperties.length > 0 && (
+              {propertyStore.loading && findFilteredProperties.length > 0 && (
                 <View style={styles.listInlineLoader}>
                   <ActivityIndicator size="small" color={themeColors.primary} />
                   <Text style={[styles.inlineLoaderText, { color: themeColors.subtext }]}>
@@ -688,7 +770,7 @@ const PropertiesScreen = observer(() => {
           onEndReachedThreshold={0.5}
           ListFooterComponent={renderFooter}
           ListEmptyComponent={
-            propertyStore.loading && displayProperties.length === 0 ? (
+            propertyStore.loading && findFilteredProperties.length === 0 ? (
               <View style={styles.center}>
                 <ActivityIndicator size="large" color={themeColors.primary} />
                 <Text style={[styles.loadingText, { color: themeColors.subtext, marginTop: 16 }]}>Loading properties...</Text>
@@ -716,6 +798,8 @@ const PropertiesScreen = observer(() => {
             <TouchableOpacity onPress={() => {
               setTempFilters({
                 ...tempFilters,
+                record_kind: '',
+                status: '',
                 purpose: '',
                 min_price: '',
                 max_price: '',
@@ -729,6 +813,59 @@ const PropertiesScreen = observer(() => {
           </View>
 
           <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+            {authStore.isAdmin && (
+              <View style={styles.filterSection}>
+                <Text style={[styles.filterLabel, { color: themeColors.text }]}>Listing Type</Text>
+                <View style={styles.chipGrid}>
+                  {[
+                    { label: 'Listings', value: 'listing' },
+                    { label: 'Containers', value: 'container' },
+                  ].map((item) => (
+                    <TouchableOpacity
+                      key={item.value}
+                      style={[
+                        styles.filterChip,
+                        { backgroundColor: filterGhostWhite },
+                        tempFilters.record_kind === item.value && { backgroundColor: themeColors.primary }
+                      ]}
+                      onPress={() => updateTempFilter('record_kind', tempFilters.record_kind === item.value ? '' : item.value)}
+                    >
+                      <Text style={[
+                        styles.filterChipText,
+                        { color: themeColors.text },
+                        tempFilters.record_kind === item.value && { color: '#fff' }
+                      ]}>{item.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {authStore.isAdmin && (
+              <View style={styles.filterSection}>
+                <Text style={[styles.filterLabel, { color: themeColors.text }]}>Status</Text>
+                <View style={styles.chipGrid}>
+                  {['active', 'inactive', 'draft'].map((statusValue) => (
+                    <TouchableOpacity
+                      key={statusValue}
+                      style={[
+                        styles.filterChip,
+                        { backgroundColor: filterGhostWhite },
+                        tempFilters.status === statusValue && { backgroundColor: themeColors.primary }
+                      ]}
+                      onPress={() => updateTempFilter('status', tempFilters.status === statusValue ? '' : statusValue)}
+                    >
+                      <Text style={[
+                        styles.filterChipText,
+                        { color: themeColors.text },
+                        tempFilters.status === statusValue && { color: '#fff' }
+                      ]}>{statusValue.toUpperCase()}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+
             <View style={styles.filterSection}>
               <Text style={[styles.filterLabel, { color: themeColors.text }]}>Purpose</Text>
               <View style={styles.chipGrid}>

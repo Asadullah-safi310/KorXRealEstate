@@ -12,7 +12,7 @@ import ScreenLayout from '../../../components/ScreenLayout';
 import { AppText } from '../../../components/AppText';
 import { Image } from 'expo-image';
 
-import { homeService } from '../../../services/home.service';
+import { HomeContainersResponse, homeService } from '../../../services/home.service';
 import { ParentReelSection } from '../components/ParentReelSection';
 import { useLanguage } from '../../../contexts/LanguageContext';
 
@@ -23,6 +23,15 @@ const BANNER_IMAGES = [
   'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=2070&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2070&auto=format&fit=crop',
 ];
+
+const HOME_BODY_FONT = 'Inter-Medium';
+
+const EMPTY_HOME_CONTAINERS: HomeContainersResponse = {
+  towers: [],
+  apartments: [],
+  markets: [],
+  sharaks: [],
+};
 
 const StatCard = ({ icon, label, value, color }: any) => {
   const themeColors = useThemeColor();
@@ -220,7 +229,7 @@ const UserDashboard = observer(() => {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeBannerIndex, setActiveBannerIndex] = useState(0);
-  const [containers, setContainers] = useState<any>({ towers: [], apartments: [], markets: [], sharaks: [] });
+  const [containers, setContainers] = useState<HomeContainersResponse>(EMPTY_HOME_CONTAINERS);
   const bannerRef = useRef<FlatList>(null);
   const router = useRouter();
   const themeColors = useThemeColor();
@@ -231,12 +240,7 @@ const UserDashboard = observer(() => {
       await propertyStore.fetchPublicProperties(10);
       const containerData = await homeService.getContainers();
       if (containerData) {
-        setContainers({
-          towers: containerData.towers || [],
-          apartments: containerData.apartments || [],
-          markets: containerData.markets || [],
-          sharaks: containerData.sharaks || [],
-        });
+        setContainers(containerData);
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -330,7 +334,12 @@ const UserDashboard = observer(() => {
               activeOpacity={1}
               onPress={() => router.push('/search')}
             >
-              <AppText variant="body" weight="medium" color={themeColors.subtext} style={{ fontSize: 17 }}>
+              <AppText
+                variant="body"
+                weight="medium"
+                color={themeColors.subtext}
+                style={{ fontSize: 17, fontFamily: HOME_BODY_FONT }}
+              >
                 {t('common.search')}
               </AppText>
             </TouchableOpacity>
@@ -345,7 +354,12 @@ const UserDashboard = observer(() => {
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={themeColors.primary} />
-            <AppText variant="body" weight="medium" color={themeColors.subtext} style={{ marginTop: 16 }}>
+            <AppText
+              variant="body"
+              weight="medium"
+              color={themeColors.subtext}
+              style={{ marginTop: 16, fontFamily: HOME_BODY_FONT }}
+            >
               {t('dashboard.loadingContent')}
             </AppText>
           </View>
@@ -383,10 +397,8 @@ const UserDashboard = observer(() => {
 });
 
 export default observer(function DashboardScreen() {
-  if (authStore.isAdmin) {
-    return <AdminDashboard />;
-  }
-  // Agents now see the Public Dashboard (UserDashboard) as well
+  // Admin now sees the same Home experience as agents/users.
+  // Admin-specific console lives at /admin from the Profile tab.
   return <UserDashboard />;
 });
 

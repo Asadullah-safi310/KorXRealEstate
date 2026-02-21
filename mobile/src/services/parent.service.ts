@@ -4,7 +4,7 @@ export interface ParentProperty {
   property_id: number;
   id?: number; // For compatibility
   title: string;
-  property_category: 'apartment' | 'market' | 'sharak' | 'normal';
+  property_category: 'tower' | 'apartment' | 'market' | 'sharak' | 'normal';
   province_id?: number;
   district_id?: number;
   area_id?: number;

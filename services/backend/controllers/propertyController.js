@@ -84,7 +84,6 @@ const createProperty = async (req, res) => {
       province_id, 
       district_id, 
       area_id, 
-      city, 
       area_size, 
       bedrooms, 
       bathrooms, 
@@ -103,7 +102,7 @@ const createProperty = async (req, res) => {
 
     // Sanitize integer fields
     const sanitizedOwnerId = sanitizeInt(owner_person_id);
-    const sanitizedAgentId = sanitizeInt(agent_id);
+    const creatorUserId = req.user?.user_id;
     const sanitizedProvinceId = sanitizeInt(province_id);
     const sanitizedDistrictId = sanitizeInt(district_id);
     const sanitizedAreaId = sanitizeInt(area_id);
@@ -131,6 +130,12 @@ const createProperty = async (req, res) => {
       }
     }
 
+    // Only agents/admins can create standalone properties.
+    if (req.user?.role !== 'agent' && req.user?.role !== 'admin') {
+      await transaction.rollback();
+      return res.status(403).json({ error: 'Only agents and admins can create properties.' });
+    }
+
     // Permission check
     if (!hasPermission(req.user, PERMISSIONS.NORMAL.CREATE)) {
       await transaction.rollback();
@@ -147,18 +152,18 @@ const createProperty = async (req, res) => {
     const agentName = req.user ? req.user.full_name : null;
     const propertyCode = await generatePropertyCode(owner_name, agentName);
 
-    // Standalone properties: category='normal', record_kind='listing', is_parent=0, parent_property_id=NULL
+    // Standalone properties: category='normal', record_kind='listing', is_parent=0, parent_id=NULL
     // Enforce standalone property rules per requirements
     const property = await Property.create({
       owner_person_id: sanitizedOwnerId,
       owner_name: owner_name || null,
       property_code: propertyCode,
-      agent_id: sanitizedAgentId,
-      created_by_user_id: req.user ? req.user.user_id : null,
+      // Creation rule: creator is always the assigned agent.
+      agent_id: creatorUserId,
+      created_by_user_id: creatorUserId,
       property_category: 'normal', // Standalone properties are ALWAYS 'normal' (enforced)
       record_kind: 'listing', // Standalone properties are listings, not containers (enforced)
       is_parent: false, // Standalone properties are NOT parent containers (is_parent=0, enforced)
-      parent_property_id: null, // Standalone properties have NO parent (enforced)
       parent_id: null, // Standalone properties have NO parent (enforced)
       property_type,
       purpose,
@@ -168,7 +173,6 @@ const createProperty = async (req, res) => {
       province_id: sanitizedProvinceId,
       district_id: sanitizedDistrictId,
       area_id: sanitizedAreaId,
-      city,
       area_size,
       bedrooms: sanitizedBedrooms,
       bathrooms: sanitizedBathrooms,
@@ -301,7 +305,6 @@ const getPropertyById = async (req, res) => {
 const searchProperties = async (req, res) => {
   try {
     const { 
-      city, 
       property_type, 
       purpose, 
       is_available_for_sale,
@@ -318,6 +321,7 @@ const searchProperties = async (req, res) => {
       parent_id,
       record_kind,
       property_category,
+      created_by_user_id,
       agent_id,
       search,
       limit, 
@@ -340,7 +344,6 @@ const searchProperties = async (req, res) => {
           { title: { [Op.like]: `%${search}%` } },
           { description: { [Op.like]: `%${search}%` } },
           { address: { [Op.like]: `%${search}%` } },
-          { city: { [Op.like]: `%${search}%` } },
           { owner_name: { [Op.like]: `%${search}%` } },
           { property_code: { [Op.like]: `%${search}%` } },
           { '$Agent.full_name$': { [Op.like]: `%${search}%` } },
@@ -378,7 +381,6 @@ const searchProperties = async (req, res) => {
       }
     }
 
-    if (city) andCriteria.push({ city: { [Op.like]: `%${city}%` } });
     if (property_type) andCriteria.push({ property_type });
     if (parent_id) andCriteria.push({ parent_id });
     if (purpose) andCriteria.push({ purpose });
@@ -388,6 +390,7 @@ const searchProperties = async (req, res) => {
     if (is_available_for_rent === 'true' || is_available_for_rent === true) {
       andCriteria.push({ is_available_for_rent: true });
     }
+    if (created_by_user_id) andCriteria.push({ created_by_user_id });
     if (agent_id) andCriteria.push({ agent_id });
     // Location filtering should also match listings that inherit location from a parent container.
     // For child units, parent.* location may be populated while child.* may be empty.
@@ -423,7 +426,10 @@ const searchProperties = async (req, res) => {
         andCriteria.push({ bedrooms });
       }
     }
-    // Ignore status from query for this public endpoint.
+    // Status filtering: admin can query all statuses.
+    if (status && req.user?.role === 'admin') {
+      andCriteria.push({ status });
+    }
     
     if (min_sale_price || max_sale_price) {
       const salePriceFilter = {};
@@ -492,7 +498,6 @@ const updateProperty = async (req, res) => {
       province_id, 
       district_id, 
       area_id, 
-      city, 
       area_size, 
       bedrooms, 
       bathrooms, 
@@ -572,7 +577,6 @@ const updateProperty = async (req, res) => {
       updateData.province_id = sanitizedProvinceId !== undefined ? sanitizedProvinceId : property.province_id;
       updateData.district_id = sanitizedDistrictId !== undefined ? sanitizedDistrictId : property.district_id;
       updateData.area_id = sanitizedAreaId !== undefined ? sanitizedAreaId : property.area_id;
-      updateData.city = city !== undefined ? city : property.city;
       updateData.latitude = latitude !== undefined ? latitude : property.latitude;
       updateData.longitude = longitude !== undefined ? longitude : property.longitude;
     }
@@ -677,7 +681,8 @@ const getDashboardStats = async (req, res) => {
     // Listed: All properties created by this user/agent (not assigned, just created)
     const totalListed = await Property.count({
       where: {
-        created_by_user_id: userId
+        created_by_user_id: userId,
+        record_kind: 'listing'
       }
     });
 
@@ -727,6 +732,9 @@ const uploadFiles = async (req, res) => {
     const { id } = req.params;
     const property = await Property.findByPk(id);
     if (!property) return res.status(404).json({ error: 'Property not found' });
+    if (req.user?.role !== 'admin' && property.created_by_user_id !== req.user?.user_id && property.agent_id !== req.user?.user_id) {
+      return res.status(403).json({ error: 'Not authorized to upload files for this property' });
+    }
 
     const inferFileType = (file) => {
       const mime = String(file?.mimetype || '').toLowerCase();
@@ -934,6 +942,9 @@ const deleteFile = async (req, res) => {
     const { fileUrl, type } = req.body;
     const property = await Property.findByPk(id);
     if (!property) return res.status(404).json({ error: 'Property not found' });
+    if (req.user?.role !== 'admin' && property.created_by_user_id !== req.user?.user_id && property.agent_id !== req.user?.user_id) {
+      return res.status(403).json({ error: 'Not authorized to delete files for this property' });
+    }
 
     if (type === 'video') {
       const videos = Array.isArray(property.videos) ? property.videos : [];

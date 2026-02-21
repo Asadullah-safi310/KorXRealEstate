@@ -4,6 +4,7 @@ import { AppText } from '../../../components/AppText';
 import { useThemeColor } from '../../../hooks/useThemeColor';
 import { ContainerReelCard } from './ContainerReelCard';
 import { useRouter } from 'expo-router';
+import type { HomeContainerItem } from '../../../services/home.service';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.7;
@@ -11,9 +12,9 @@ const SPACING = 16;
 
 interface ContainerReelsSectionProps {
   title: string;
-  data: any[];
+  data: HomeContainerItem[];
   badgeColor?: string;
-  category: string;
+  category: HomeContainerItem['category'];
 }
 
 export const ContainerReelsSection = ({ title, data, badgeColor, category }: ContainerReelsSectionProps) => {

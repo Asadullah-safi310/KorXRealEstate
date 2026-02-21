@@ -67,7 +67,7 @@ const StepPropertyDetails = () => {
   const theme = useThemeColor();
   const [showUnitPicker, setShowUnitPicker] = useState(false);
 
-  const isAddingChild = !!(values.parent_property_id || values.parentId || values.apartment_id) || 
+  const isAddingChild = !!(values.parent_id || values.parentId || values.apartment_id) || 
                         (!values.is_parent && values.property_category && values.property_category !== 'normal');
 
   const showBedBath = !values.is_parent && (values.property_type === 'house' || values.property_type === 'apartment');
@@ -383,3 +383,4 @@ const styles = StyleSheet.create({
 });
 
 export default StepPropertyDetails;
+

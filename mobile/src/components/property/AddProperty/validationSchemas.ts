@@ -31,7 +31,7 @@ export const initialValues = {
   property_type: '',
   purpose: 'sale',
   is_parent: false, // Default to NOT a parent container
-  parent_property_id: null, // Default to no parent (standalone)
+  parent_id: null, // Default to no parent (standalone)
   parentId: null,
   apartment_id: null,
   parentName: '',
@@ -189,3 +189,4 @@ export const stepSchemas = [
   StepLocationAmenitiesSchema,
   StepReviewSchema,
 ];
+

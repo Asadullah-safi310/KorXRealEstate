@@ -18,7 +18,7 @@ const StepReview = ({ onEditStep }: StepReviewProps) => {
   const { values } = useFormikContext<any>();
   const theme = useThemeColor();
 
-  const isAddingChild = !!(values.parent_property_id || values.parentId || values.apartment_id) || 
+  const isAddingChild = !!(values.parent_id || values.parentId || values.apartment_id) || 
                         (!values.is_parent && values.property_category && values.property_category !== 'normal');
   const agent = personStore.agents.find(a => String(a.user_id) === values.agent_id);
 
@@ -93,7 +93,7 @@ const StepReview = ({ onEditStep }: StepReviewProps) => {
             )}
           </>
         )}
-        {!isAddingChild && <InfoRow label="Location" value={values.location} icon="map-marker-outline" />}
+        {!isAddingChild && <InfoRow label="Location" value={values.address || values.location} icon="map-marker-outline" />}
       </ReviewSection>
 
       {!isAddingChild && (
@@ -249,3 +249,4 @@ const styles = StyleSheet.create({
 });
 
 export default StepReview;
+

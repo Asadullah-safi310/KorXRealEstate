@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import authStore from '../../../stores/AuthStore';
 import propertyStore from '../../../stores/PropertyStore';
 import { propertyService } from '../../../services/property.service';
+import parentService from '../../../services/parent.service';
 import { useThemeColor } from '../../../hooks/useThemeColor';
 import dealStore from '../../../stores/DealStore';
 import Avatar from '../../../components/Avatar';
@@ -46,7 +47,10 @@ const ProfileScreen = observer(() => {
   const isAgent = authStore.isAgent;
   const isAdmin = authStore.isAdmin;
   const [refreshing, setRefreshing] = useState(false);
-  const [myCreatedPropertiesCount, setMyCreatedPropertiesCount] = useState<number>(0);
+  const [myCreatedPropertiesCount, setMyCreatedPropertiesCount] = useState<number | null>(null);
+  const [myTowersCount, setMyTowersCount] = useState<number>(0);
+  const [myMarketsCount, setMyMarketsCount] = useState<number>(0);
+  const [mySharaksCount, setMySharaksCount] = useState<number>(0);
   const isDark = themeStore.theme === 'dark' || (themeStore.theme === 'system' && system === 'dark');
 
   const fetchData = useCallback(async () => {
@@ -57,7 +61,7 @@ const ProfileScreen = observer(() => {
 
     if (userId) {
       promises.push(propertyStore.fetchUserProperties(userId, 5));
-      promises.push(propertyService.getUserProperties({ created_by_user_id: userId }));
+      promises.push(propertyService.getUserProperties({ created_by_user_id: userId, record_kind: 'listing' }));
     }
 
     const results = await Promise.all(promises);
@@ -66,6 +70,22 @@ const ProfileScreen = observer(() => {
       const createdCount = Array.isArray(createdByUserResponse?.data) ? createdByUserResponse.data.length : 0;
       setMyCreatedPropertiesCount(createdCount);
     }
+
+    const [towersResult, marketsResult, sharaksResult] = await Promise.allSettled([
+      authStore.hasPermission('MY_TOWERS') ? parentService.getAgentParents('tower') : Promise.resolve([]),
+      authStore.hasPermission('MY_MARKETS') ? parentService.getAgentParents('market') : Promise.resolve([]),
+      authStore.hasPermission('MY_SHARAKS') ? parentService.getAgentParents('sharak') : Promise.resolve([]),
+    ]);
+
+    setMyTowersCount(
+      towersResult.status === 'fulfilled' && Array.isArray(towersResult.value) ? towersResult.value.length : 0
+    );
+    setMyMarketsCount(
+      marketsResult.status === 'fulfilled' && Array.isArray(marketsResult.value) ? marketsResult.value.length : 0
+    );
+    setMySharaksCount(
+      sharaksResult.status === 'fulfilled' && Array.isArray(sharaksResult.value) ? sharaksResult.value.length : 0
+    );
   }, [isAuthenticated, isAgent, userId]);
 
   useEffect(() => {
@@ -123,7 +143,7 @@ const ProfileScreen = observer(() => {
     total_managed: 0, total_assigned: 0, total_listed: 0,
     public_listings: 0, for_sale: 0, for_rent: 0, active_deals: 0
   };
-  const myPropertiesCount = myCreatedPropertiesCount || stats.total_listed || 0;
+  const myPropertiesCount = myCreatedPropertiesCount ?? stats.total_listed ?? 0;
 
   return (
     <ScreenLayout 
@@ -175,7 +195,7 @@ const ProfileScreen = observer(() => {
       <View style={styles.content}>
         {/* Quick Actions */}
         <View style={styles.quickActionRow}>
-          {authStore.hasPermission('ADD_PROPERTY') && (
+          {isAgent && authStore.hasPermission('ADD_PROPERTY') && (
             <TouchableOpacity 
               style={[styles.quickActionBtn, { backgroundColor: themeColors.primary }]}
               onPress={() => router.push('/property/create')}
@@ -240,9 +260,18 @@ const ProfileScreen = observer(() => {
               theme={themeColors}
             />
           )}
+          {isAdmin && (
+            <MenuLink
+              index={1}
+              icon="people-outline"
+              title={t('tabs.people')}
+              onPress={() => router.push('/(tabs)/people')}
+              theme={themeColors}
+            />
+          )}
           {authStore.hasPermission('MY_PROPERTIES') && (
             <MenuLink 
-              index={1}
+              index={2}
               icon="home-outline" 
               title={t('property.myProperties')} 
               subtitle={`${myPropertiesCount} ${myPropertiesCount === 1 ? t('property.property') : t('property.properties')}`}
@@ -252,34 +281,37 @@ const ProfileScreen = observer(() => {
           )}
           {authStore.hasPermission('MY_TOWERS') && (
             <MenuLink 
-              index={2}
+              index={3}
               icon="business-outline" 
               title={t('profile.myTowers')} 
+              subtitle={`${myTowersCount} ${myTowersCount === 1 ? t('property.tower') : t('property.towers')}`}
               onPress={() => router.push('/profile/my-apartments')} 
               theme={themeColors}
             />
           )}
           {authStore.hasPermission('MY_MARKETS') && (
             <MenuLink 
-              index={3}
+              index={4}
               icon="storefront-outline" 
               title={t('profile.myMarkets')} 
+              subtitle={`${myMarketsCount} ${myMarketsCount === 1 ? t('property.market') : t('property.markets')}`}
               onPress={() => router.push('/profile/my-markets')} 
               theme={themeColors}
             />
           )}
           {authStore.hasPermission('MY_SHARAKS') && (
             <MenuLink 
-              index={4}
+              index={5}
               icon="people-outline" 
               title={t('profile.mySharaks')} 
+              subtitle={`${mySharaksCount} ${mySharaksCount === 1 ? t('property.sharak') : t('property.sharaks')}`}
               onPress={() => router.push('/profile/my-sharaks')} 
               theme={themeColors}
             />
           )}
           {authStore.hasPermission('TRANSACTION_HISTORY') && (
             <MenuLink 
-              index={5}
+              index={6}
               icon="handshake" 
               iconFamily="MaterialCommunityIcons"
               title="Transaction History" 
@@ -288,35 +320,35 @@ const ProfileScreen = observer(() => {
             />
           )}
           <MenuLink 
-            index={6}
+            index={7}
             icon="heart-outline" 
             title="Saved Favorites" 
             onPress={() => router.push('/profile/favorites')} 
             theme={themeColors}
           />
           <MenuLink 
-            index={7}
+            index={8}
             icon={isDark ? "sunny-outline" : "moon-outline"}
             title={t('profile.darkMode')}
             onPress={toggleTheme}
             theme={themeColors}
           />
           <MenuLink 
-            index={8}
+            index={9}
             icon="information-circle-outline"
             title={t('profile.about')}
             onPress={() => router.push('/profile/about')}
             theme={themeColors}
           />
           <MenuLink 
-            index={9}
+            index={10}
             icon="settings-outline" 
             title="Account Settings" 
             onPress={() => router.push('/profile/settings')} 
             theme={themeColors}
           />
           <MenuLink 
-            index={10}
+            index={11}
             icon="help-circle-outline" 
             title="Support Center" 
             onPress={() => router.push('/profile/help')} 
@@ -548,8 +580,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   menuLinkSubtitle: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: '400',
     marginTop: 2,
   },
   logoutBtn: {

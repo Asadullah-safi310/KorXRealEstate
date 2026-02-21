@@ -20,7 +20,6 @@ const getHomeContainers = async (req, res) => {
           'property_id',
           'title',
           'photos',
-          'city',
           'property_category',
           [
             sequelize.literal(`(
@@ -90,7 +89,7 @@ const getHomeContainers = async (req, res) => {
           id: pJson.property_id,
           title: pJson.title,
           images: photosArr.length > 0 ? photosArr : ['https://images.unsplash.com/photo-1564013799919-ab600027ffc6'],
-          city: pJson.DistrictData?.name || pJson.city,
+          district: pJson.DistrictData?.name || '',
           province: pJson.ProvinceData?.name,
           availableUnits: parseInt(pJson.availableUnits) || 0,
           totalUnits: parseInt(pJson.childCount) || 0,

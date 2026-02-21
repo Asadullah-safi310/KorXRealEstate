@@ -24,25 +24,8 @@ const MyPropertiesScreen = observer(() => {
     
     setLoading(true);
     try {
-      const userId = authStore.user.user_id;
-      const requests = [
-        propertyService.getUserProperties({ created_by_user_id: userId }),
-      ];
-
-      if (authStore.isAgent) {
-        requests.push(propertyService.getUserProperties({ agent_id: userId }));
-      }
-
-      const responses = await Promise.all(requests);
-      const createdByUser = responses[0]?.data || [];
-      const assignedToAgent = responses[1]?.data || [];
-      const merged = [...createdByUser, ...assignedToAgent];
-
-      const deduped = Array.from(
-        new Map(merged.map((p: any) => [String(p.property_id), p])).values()
-      );
-
-      setUserProperties(deduped);
+      const response = await propertyService.getMyProperties();
+      setUserProperties(response?.data || []);
     } catch (error) {
       console.error('Failed to fetch properties', error);
     } finally {
@@ -180,7 +163,7 @@ const MyPropertiesScreen = observer(() => {
                       <Ionicons name="location-outline" size={16} color={themeColors.subtext} />
                       <Text style={[styles.privatePropertyLabel, { color: themeColors.subtext }]}>Location:</Text>
                       <Text style={[styles.privatePropertyValue, { color: themeColors.text }]} numberOfLines={1}>
-                        {item.address || item.city || 'N/A'}
+                        {[item.address, item.AreaData?.name, item.DistrictData?.name, item.ProvinceData?.name].filter(Boolean).join(', ') || 'N/A'}
                       </Text>
                     </View>
                     <View style={styles.privatePropertyRow}>

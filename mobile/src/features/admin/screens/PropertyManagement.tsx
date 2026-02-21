@@ -1,13 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput, Modal, ScrollView } from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput, Modal, ScrollView, StatusBar as RNStatusBar, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { observer } from 'mobx-react-lite';
+import { useFocusEffect } from '@react-navigation/native';
 import ScreenLayout from '../../../components/ScreenLayout';
 import { AppText } from '../../../components/AppText';
 import { useThemeColor } from '../../../hooks/useThemeColor';
+import authStore from '../../../stores/AuthStore';
 import { adminService } from '../../../services/admin.service';
 import { locationService } from '../../../services/location.service';
+import { personService } from '../../../services/person.service';
 
 const PropertyManagement = observer(() => {
   const router = useRouter();
@@ -21,14 +25,28 @@ const PropertyManagement = observer(() => {
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
+  const [agents, setAgents] = useState<any[]>([]);
+  const [provinces, setProvinces] = useState<any[]>([]);
+  const [districts, setDistricts] = useState<any[]>([]);
+  const [areas, setAreas] = useState<any[]>([]);
   
   // Filters
   const [filters, setFilters] = useState({
-    city: '',
+    province_id: '',
+    district_id: '',
+    area_id: '',
     purpose: (purpose as string) || '', // SALE, RENT
-    status: (status as string) || '', // available, sold, rented
-    is_promoted: undefined,
+    status: (status as string) || '', // draft, active, inactive
+    is_promoted: undefined as undefined | boolean,
     agent_id: (agent_id as string) || '',
+    property_type: '',
+    property_category: '',
+    owner_name: '',
+    created_by_user_id: '',
+    bedrooms: '',
+    bathrooms: '',
+    min_price: '',
+    max_price: '',
   });
 
   const fetchProperties = useCallback(async (pageNum = 1, shouldAppend = false) => {
@@ -61,6 +79,76 @@ const PropertyManagement = observer(() => {
     fetchProperties(1);
   }, [fetchProperties]);
 
+  useEffect(() => {
+    RNStatusBar.setHidden(false, 'fade');
+    RNStatusBar.setBarStyle('light-content');
+    if (Platform.OS === 'android') {
+      RNStatusBar.setTranslucent(true);
+      RNStatusBar.setBackgroundColor('rgba(0,0,0,0.36)');
+    }
+  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      RNStatusBar.setHidden(false, 'fade');
+      RNStatusBar.setBarStyle('light-content');
+      if (Platform.OS === 'android') {
+        RNStatusBar.setTranslucent(true);
+        RNStatusBar.setBackgroundColor('rgba(0,0,0,0.36)');
+      }
+    }, [])
+  );
+
+  useEffect(() => {
+    const loadFilterData = async () => {
+      try {
+        const [agentsRes, provincesRes] = await Promise.all([
+          personService.getAgents(),
+          locationService.getProvinces(),
+        ]);
+        const users = agentsRes?.data || [];
+        setAgents(users.filter((u: any) => u?.role !== 'admin'));
+        setProvinces(provincesRes?.data || []);
+      } catch (error) {
+        console.error('Failed to load filter metadata:', error);
+      }
+    };
+
+    loadFilterData();
+  }, []);
+
+  useEffect(() => {
+    const loadDistricts = async () => {
+      if (!filters.province_id) {
+        setDistricts([]);
+        setAreas([]);
+        return;
+      }
+      try {
+        const res = await locationService.getDistricts(filters.province_id);
+        setDistricts(res?.data || []);
+      } catch (error) {
+        console.error('Failed to load districts:', error);
+      }
+    };
+    loadDistricts();
+  }, [filters.province_id]);
+
+  useEffect(() => {
+    const loadAreas = async () => {
+      if (!filters.district_id) {
+        setAreas([]);
+        return;
+      }
+      try {
+        const res = await locationService.getAreas(filters.district_id);
+        setAreas(res?.data || []);
+      } catch (error) {
+        console.error('Failed to load areas:', error);
+      }
+    };
+    loadAreas();
+  }, [filters.district_id]);
+
   const loadMore = () => {
     if (page < totalPages && !loadingMore) {
       fetchProperties(page + 1, true);
@@ -77,7 +165,9 @@ const PropertyManagement = observer(() => {
           <View style={styles.listMain}>
             <View style={styles.listTitleContainer}>
               <AppText variant="body" weight="bold" numberOfLines={1}>{item.title}</AppText>
-              <AppText variant="tiny" color={themeColors.subtext} numberOfLines={1}>{item.city}</AppText>
+              <AppText variant="tiny" color={themeColors.subtext} numberOfLines={1}>
+                {[item.DistrictData?.name, item.ProvinceData?.name].filter(Boolean).join(', ') || 'N/A'}
+              </AppText>
             </View>
             <View style={[styles.statusBadgeSmall, { backgroundColor: item.status === 'available' ? '#ecfdf5' : '#fef2f2' }]}>
               <AppText variant="tiny" weight="bold" color={item.status === 'available' ? '#059669' : '#dc2626'}>
@@ -103,7 +193,9 @@ const PropertyManagement = observer(() => {
         <View style={styles.propertyHeader}>
           <View style={styles.titleInfo}>
             <AppText variant="body" weight="bold">{item.title}</AppText>
-            <AppText variant="caption" color={themeColors.subtext}>{item.location}, {item.city}</AppText>
+            <AppText variant="caption" color={themeColors.subtext}>
+              {[item.address, item.AreaData?.name, item.DistrictData?.name, item.ProvinceData?.name].filter(Boolean).join(', ') || 'N/A'}
+            </AppText>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: item.status === 'available' ? '#ecfdf5' : '#fef2f2' }]}>
             <AppText variant="tiny" weight="bold" color={item.status === 'available' ? '#059669' : '#dc2626'}>
@@ -128,7 +220,7 @@ const PropertyManagement = observer(() => {
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.actionBtn}
-            onPress={() => router.push(`/property/edit/${item.property_id}`)}
+            onPress={() => router.push(`/property/create?id=${item.property_id}`)}
           >
             <Ionicons name="create-outline" size={18} color={themeColors.text} />
             <AppText variant="caption" weight="bold" style={{ marginLeft: 4 }}>Edit</AppText>
@@ -151,6 +243,7 @@ const PropertyManagement = observer(() => {
 
   return (
     <ScreenLayout backgroundColor={themeColors.background}>
+      <StatusBar style="light" translucent backgroundColor="rgba(0,0,0,0.36)" hidden={false} />
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
@@ -164,12 +257,14 @@ const PropertyManagement = observer(() => {
             >
               <Ionicons name={viewMode === 'card' ? 'list-outline' : 'grid-outline'} size={20} color={themeColors.primary} />
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.addBtn, { backgroundColor: themeColors.primary }]}
-              onPress={() => router.push('/property/create')}
-            >
-              <Ionicons name="add" size={24} color="#fff" />
-            </TouchableOpacity>
+            {authStore.user?.role === 'agent' && (
+              <TouchableOpacity 
+                style={[styles.addBtn, { backgroundColor: themeColors.primary }]}
+                onPress={() => router.push('/property/create')}
+              >
+                <Ionicons name="add" size={24} color="#fff" />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -218,16 +313,163 @@ const PropertyManagement = observer(() => {
         <View style={styles.modalContainer}>
           <View style={[styles.modalContent, { backgroundColor: themeColors.background }]}>
             <View style={styles.modalHeader}>
-              <AppText variant="title" weight="bold">Filters</AppText>
+              <View>
+                <AppText variant="title" weight="bold">Filters</AppText>
+                <AppText variant="tiny" color={themeColors.subtext}>Advanced filters: agent, type, province, district, area, beds, baths, purpose, status</AppText>
+              </View>
               <TouchableOpacity onPress={() => setShowFilters(false)}>
                 <Ionicons name="close" size={24} color={themeColors.text} />
               </TouchableOpacity>
             </View>
             
-            <ScrollView style={styles.filterOptions}>
+            <ScrollView style={styles.filterOptions} showsVerticalScrollIndicator contentContainerStyle={styles.filterOptionsContent}>
+              <FilterSection
+                title="Agent"
+                options={[
+                  { label: 'Unassigned', value: 'none' },
+                  ...agents.map((a: any) => ({ label: a.full_name || `Agent ${a.user_id}`, value: String(a.user_id) }))
+                ]}
+                selected={filters.agent_id}
+                onSelect={(val) => setFilters({ ...filters, agent_id: val })}
+                theme={themeColors}
+              />
+              <FilterSection
+                title="Property Type"
+                options={[
+                  { label: 'House', value: 'house' },
+                  { label: 'Apartment', value: 'apartment' },
+                  { label: 'Shop', value: 'shop' },
+                  { label: 'Office', value: 'office' },
+                  { label: 'Land', value: 'land' },
+                  { label: 'Plot', value: 'plot' },
+                ]}
+                selected={filters.property_type}
+                onSelect={(val) => setFilters({ ...filters, property_type: val })}
+                theme={themeColors}
+              />
+              <FilterSection
+                title="Property Category"
+                options={[
+                  { label: 'Normal', value: 'normal' },
+                  { label: 'Apartment', value: 'apartment' },
+                  { label: 'Tower', value: 'tower' },
+                  { label: 'Market', value: 'market' },
+                  { label: 'Sharak', value: 'sharak' },
+                ]}
+                selected={filters.property_category}
+                onSelect={(val) => setFilters({ ...filters, property_category: val })}
+                theme={themeColors}
+              />
+              <FilterSection
+                title="Province"
+                options={provinces.map((p: any) => ({ label: p.name, value: String(p.id) }))}
+                selected={filters.province_id}
+                onSelect={(val) =>
+                  setFilters({
+                    ...filters,
+                    province_id: val,
+                    district_id: '',
+                    area_id: '',
+                  })
+                }
+                theme={themeColors}
+              />
+              <FilterSection
+                title="District"
+                options={districts.map((d: any) => ({ label: d.name, value: String(d.id) }))}
+                selected={filters.district_id}
+                onSelect={(val) =>
+                  setFilters({
+                    ...filters,
+                    district_id: val,
+                    area_id: '',
+                  })
+                }
+                theme={themeColors}
+              />
+              <FilterSection
+                title="Area"
+                options={areas.map((a: any) => ({ label: a.name, value: String(a.id) }))}
+                selected={filters.area_id}
+                onSelect={(val) => setFilters({ ...filters, area_id: val })}
+                theme={themeColors}
+              />
               <FilterSection title="Purpose" options={['SALE', 'RENT']} selected={filters.purpose} onSelect={(val) => setFilters({...filters, purpose: val})} theme={themeColors} />
-              <FilterSection title="Status" options={['available', 'sold', 'rented']} selected={filters.status} onSelect={(val) => setFilters({...filters, status: val})} theme={themeColors} />
-              <FilterSection title="Promoted" options={['true', 'false']} selected={filters.is_promoted?.toString()} onSelect={(val) => setFilters({...filters, is_promoted: val === 'true' as any})} theme={themeColors} />
+              <FilterSection title="Status" options={['active', 'inactive', 'draft']} selected={filters.status} onSelect={(val) => setFilters({...filters, status: val})} theme={themeColors} />
+              <FilterSection
+                title="Promoted"
+                options={['true', 'false']}
+                selected={filters.is_promoted?.toString()}
+                onSelect={(val) => setFilters({ ...filters, is_promoted: val ? val === 'true' : undefined })}
+                theme={themeColors}
+              />
+
+              <View style={styles.filterSection}>
+                <AppText variant="body" weight="bold" style={{ marginBottom: 8 }}>Owner Name</AppText>
+                <TextInput
+                  style={[styles.filterInput, { borderColor: themeColors.border, color: themeColors.text, backgroundColor: themeColors.card }]}
+                  placeholder="Enter owner name"
+                  placeholderTextColor={themeColors.subtext}
+                  value={filters.owner_name}
+                  onChangeText={(text) => setFilters({ ...filters, owner_name: text })}
+                />
+              </View>
+
+              <View style={styles.filterSection}>
+                <AppText variant="body" weight="bold" style={{ marginBottom: 8 }}>Created By User ID</AppText>
+                <TextInput
+                  style={[styles.filterInput, { borderColor: themeColors.border, color: themeColors.text, backgroundColor: themeColors.card }]}
+                  placeholder="e.g. 12"
+                  placeholderTextColor={themeColors.subtext}
+                  keyboardType="numeric"
+                  value={filters.created_by_user_id}
+                  onChangeText={(text) => setFilters({ ...filters, created_by_user_id: text.replace(/[^0-9]/g, '') })}
+                />
+              </View>
+
+              <View style={styles.filterSection}>
+                <AppText variant="body" weight="bold" style={{ marginBottom: 8 }}>Price Range</AppText>
+                <View style={styles.numericRow}>
+                  <TextInput
+                    style={[styles.filterInput, styles.numericInput, { borderColor: themeColors.border, color: themeColors.text, backgroundColor: themeColors.card }]}
+                    placeholder="Min price"
+                    placeholderTextColor={themeColors.subtext}
+                    keyboardType="numeric"
+                    value={filters.min_price}
+                    onChangeText={(text) => setFilters({ ...filters, min_price: text.replace(/[^0-9]/g, '') })}
+                  />
+                  <TextInput
+                    style={[styles.filterInput, styles.numericInput, { borderColor: themeColors.border, color: themeColors.text, backgroundColor: themeColors.card }]}
+                    placeholder="Max price"
+                    placeholderTextColor={themeColors.subtext}
+                    keyboardType="numeric"
+                    value={filters.max_price}
+                    onChangeText={(text) => setFilters({ ...filters, max_price: text.replace(/[^0-9]/g, '') })}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.filterSection}>
+                <AppText variant="body" weight="bold" style={{ marginBottom: 8 }}>Bedrooms / Bathrooms</AppText>
+                <View style={styles.numericRow}>
+                  <TextInput
+                    style={[styles.filterInput, styles.numericInput, { borderColor: themeColors.border, color: themeColors.text, backgroundColor: themeColors.card }]}
+                    placeholder="Bedrooms"
+                    placeholderTextColor={themeColors.subtext}
+                    keyboardType="numeric"
+                    value={filters.bedrooms}
+                    onChangeText={(text) => setFilters({ ...filters, bedrooms: text.replace(/[^0-9]/g, '') })}
+                  />
+                  <TextInput
+                    style={[styles.filterInput, styles.numericInput, { borderColor: themeColors.border, color: themeColors.text, backgroundColor: themeColors.card }]}
+                    placeholder="Bathrooms"
+                    placeholderTextColor={themeColors.subtext}
+                    keyboardType="numeric"
+                    value={filters.bathrooms}
+                    onChangeText={(text) => setFilters({ ...filters, bathrooms: text.replace(/[^0-9]/g, '') })}
+                  />
+                </View>
+              </View>
             </ScrollView>
 
             <TouchableOpacity 
@@ -242,7 +484,23 @@ const PropertyManagement = observer(() => {
             <TouchableOpacity 
               style={styles.resetBtn}
               onPress={() => {
-                setFilters({ city: '', purpose: '', status: '', is_promoted: undefined, agent_id: '' });
+                setFilters({
+                  province_id: '',
+                  district_id: '',
+                  area_id: '',
+                  purpose: '',
+                  status: '',
+                  is_promoted: undefined,
+                  agent_id: '',
+                  property_type: '',
+                  property_category: '',
+                  owner_name: '',
+                  created_by_user_id: '',
+                  bedrooms: '',
+                  bathrooms: '',
+                  min_price: '',
+                  max_price: '',
+                });
                 setSearch('');
               }}
             >
@@ -266,21 +524,24 @@ const FilterSection = ({ title, options, selected, onSelect, theme }: any) => (
   <View style={styles.filterSection}>
     <AppText variant="body" weight="bold" style={{ marginBottom: 8 }}>{title}</AppText>
     <View style={styles.optionRow}>
-      {options.map((opt: string) => (
+      {options.map((opt: any) => {
+        const value = typeof opt === 'string' ? opt : String(opt.value);
+        const label = typeof opt === 'string' ? opt.toUpperCase() : String(opt.label);
+        return (
         <TouchableOpacity 
-          key={opt}
+          key={value}
           style={[
             styles.optionChip, 
             { borderColor: theme.border },
-            selected === opt && { backgroundColor: theme.primary, borderColor: theme.primary }
+            selected === value && { backgroundColor: theme.primary, borderColor: theme.primary }
           ]}
-          onPress={() => onSelect(selected === opt ? '' : opt)}
+          onPress={() => onSelect(selected === value ? '' : value)}
         >
-          <AppText variant="tiny" weight="bold" color={selected === opt ? '#fff' : theme.text}>
-            {opt.toUpperCase()}
+          <AppText variant="tiny" weight="bold" color={selected === value ? '#fff' : theme.text}>
+            {label}
           </AppText>
         </TouchableOpacity>
-      ))}
+      )})}
     </View>
   </View>
 );
@@ -439,7 +700,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
-    maxHeight: '80%',
+    maxHeight: '92%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -449,6 +710,9 @@ const styles = StyleSheet.create({
   },
   filterOptions: {
     marginBottom: 24,
+  },
+  filterOptionsContent: {
+    paddingBottom: 16,
   },
   filterSection: {
     marginBottom: 20,
@@ -463,6 +727,20 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
+  },
+  filterInput: {
+    height: 46,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    fontSize: 14,
+  },
+  numericRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  numericInput: {
+    flex: 1,
   },
   applyBtn: {
     height: 56,

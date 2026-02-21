@@ -40,7 +40,7 @@ export default observer(function TabLayout() {
   const insets = useSafeAreaInsets();
   const themeColors = useThemeColor();
   const router = useRouter();
-  const isAgentUser = authStore.user?.role === 'agent';
+  const isAgentUser = authStore.isAgent;
   const { t } = useLanguage();
 
   return (
@@ -89,7 +89,7 @@ export default observer(function TabLayout() {
         name="create-property"
         options={{
           title: t('tabs.add'),
-          href: (isAuthenticated && authStore.hasPermission('ADD_PROPERTY')) ? '/(tabs)/create-property' : null,
+          href: (isAuthenticated && isAgentUser && authStore.hasPermission('ADD_PROPERTY')) ? '/(tabs)/create-property' : null,
           tabBarIcon: ({ color, focused }) => (
             <View style={[styles.fabContainer, { backgroundColor: themeColors.card }]}>
               <View style={[styles.fab, { backgroundColor: themeColors.primary }]}>
@@ -107,7 +107,7 @@ export default observer(function TabLayout() {
               
               if (!isAuthenticated) {
                 router.push('/(auth)/login');
-              } else if (authStore.hasPermission('ADD_PROPERTY')) {
+              } else if (isAgentUser && authStore.hasPermission('ADD_PROPERTY')) {
                 router.push('/property/create');
               }
             },
@@ -158,7 +158,8 @@ export default observer(function TabLayout() {
         name="people"
         options={{
           title: t('tabs.people'),
-          href: (isAdmin && !isAgentUser) ? '/(tabs)/people' : null,
+          // Moved to Profile menu for admin account.
+          href: null,
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name={focused ? "people" : "people-outline"} color={color} focused={focused} />
           ),

@@ -104,7 +104,7 @@ const PersonDetailsScreen = observer(() => {
       const isAvailable = isSale || isRent;
       const isContainer = ['tower', 'apartment', 'sharak', 'market'].includes(prop.property_category?.toLowerCase());
       
-      if (isContainer && !prop.parent_property_id) {
+      if (isContainer && !prop.parent_id) {
         // Map to format expected by ParentReelCard
         const mapped = {
           id: prop.property_id,
@@ -205,15 +205,15 @@ const PersonDetailsScreen = observer(() => {
     person.address,
     person.AreaData?.name || person.area?.name || person.area_name,
     person.DistrictData?.name || person.district?.name || person.district,
-    person.ProvinceData?.name || person.province?.name || person.city || person.province_name,
+    person.ProvinceData?.name || person.province?.name || person.province_name,
   ].filter(Boolean).join(', ');
 
   const propertyLocation = (properties || [])
     .map((prop: any) => [
-      prop.address || prop.location,
+      prop.address,
       prop.AreaData?.name || prop.area?.name || prop.area_name,
       prop.DistrictData?.name || prop.district?.name || prop.district,
-      prop.ProvinceData?.name || prop.province?.name || prop.city || prop.province_name,
+      prop.ProvinceData?.name || prop.province?.name || prop.province_name,
     ].filter(Boolean).join(', '))
     .find((loc: string) => !!loc);
 

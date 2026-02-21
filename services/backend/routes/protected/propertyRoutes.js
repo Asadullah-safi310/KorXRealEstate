@@ -51,8 +51,17 @@ router.put('/:id', [
 router.patch('/:id/status', hasPermission(PERMISSIONS.MY_PROPERTIES), updatePropertyStatus);
 router.put('/:id/availability', hasPermission(PERMISSIONS.MY_PROPERTIES), updatePropertyAvailability);
 router.post('/:id/children', hasPermission(PERMISSIONS.ADD_PROPERTY), addChildProperty);
-router.post('/:id/upload', hasPermission(PERMISSIONS.MY_PROPERTIES), upload.array('files', 10), uploadFiles);
-router.delete('/:id/file', hasPermission(PERMISSIONS.MY_PROPERTIES), deleteFile);
+router.post(
+  '/:id/upload',
+  hasPermission(PERMISSIONS.MY_PROPERTIES, PERMISSIONS.MY_TOWERS, PERMISSIONS.MY_MARKETS, PERMISSIONS.MY_SHARAKS),
+  upload.array('files', 10),
+  uploadFiles
+);
+router.delete(
+  '/:id/file',
+  hasPermission(PERMISSIONS.MY_PROPERTIES, PERMISSIONS.MY_TOWERS, PERMISSIONS.MY_MARKETS, PERMISSIONS.MY_SHARAKS),
+  deleteFile
+);
 router.delete('/:id', hasPermission(PERMISSIONS.MY_PROPERTIES), deleteProperty);
 
 module.exports = router;

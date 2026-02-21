@@ -20,9 +20,10 @@ export const shareProperty = async (property: any) => {
 
     // Format Location
     const locationParts = [
-      property.city,
+      property.address,
       property.DistrictData?.name || property.district,
       property.AreaData?.name,
+      property.ProvinceData?.name || property.province_name,
     ].filter(Boolean);
     
     // Remove duplicates from location parts

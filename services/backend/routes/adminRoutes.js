@@ -10,6 +10,8 @@ const {
   getUserPermissions,
   updateUserPermissions,
   getAvailablePermissions,
+  getUserContainerLimits,
+  updateUserContainerLimits,
 } = require('../controllers/adminController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
@@ -27,5 +29,7 @@ router.get('/deals', getAllDeals);
 router.get('/permissions', getAvailablePermissions);
 router.get('/users/:id/permissions', getUserPermissions);
 router.put('/users/:id/permissions', updateUserPermissions);
+router.get('/users/:id/container-limits', getUserContainerLimits);
+router.put('/users/:id/container-limits', updateUserContainerLimits);
 
 module.exports = router;

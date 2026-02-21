@@ -17,17 +17,17 @@ const StepOwnership = observer(({ isStandalone, isEditing, isAddingChild: isAddi
 
   const isAddingChild = useMemo(() => {
     return isAddingChildProp || 
-           !!values.parent_property_id || 
+           !!values.parent_id || 
            !!values.parentId || 
            !!values.apartment_id;
-  }, [isAddingChildProp, values.parent_property_id, values.parentId, values.apartment_id]);
+  }, [isAddingChildProp, values.parent_id, values.parentId, values.apartment_id]);
 
   const isCreatingParent = useMemo(() => {
     return isCreatingParentProp || !!values.is_parent;
   }, [isCreatingParentProp, values.is_parent]);
 
   useEffect(() => {
-    const parentId = values.parent_property_id || values.parentId || values.apartment_id;
+    const parentId = values.parent_id || values.parentId || values.apartment_id;
     if (parentId && !values.parentName) {
       setLoadingParent(true);
       propertyService.getPropertyById(parentId)
@@ -35,16 +35,16 @@ const StepOwnership = observer(({ isStandalone, isEditing, isAddingChild: isAddi
         .catch(() => setFieldValue('parentName', 'Parent Property'))
         .finally(() => setLoadingParent(false));
     }
-  }, [values.parent_property_id, values.parentId, values.apartment_id, values.parentName]);
+  }, [values.parent_id, values.parentId, values.apartment_id, values.parentName]);
 
   useEffect(() => {
     // Enforce category, record_kind, and is_parent based on context per requirements
     if (isStandalone && !isEditing && !isAddingChild) {
-      // Standalone properties: category='normal', record_kind='listing', is_parent=0, parent_property_id=NULL
+      // Standalone properties: category='normal', record_kind='listing', is_parent=0, parent_id=NULL
       setFieldValue('property_category', 'normal');
       setFieldValue('record_kind', 'listing');
       setFieldValue('is_parent', false);
-      setFieldValue('parent_property_id', null);
+      setFieldValue('parent_id', null);
       setFieldValue('parentId', null);
       setFieldValue('apartment_id', null);
     } else if (isAddingChild && !isEditing) {
@@ -65,7 +65,7 @@ const StepOwnership = observer(({ isStandalone, isEditing, isAddingChild: isAddi
       // Parent containers: record_kind='container', is_parent=1, category must be tower/market/sharak
       setFieldValue('record_kind', 'container');
       setFieldValue('is_parent', true);
-      setFieldValue('parent_property_id', null);
+      setFieldValue('parent_id', null);
       setFieldValue('parentId', null);
       setFieldValue('apartment_id', null);
       
@@ -160,14 +160,14 @@ const StepOwnership = observer(({ isStandalone, isEditing, isAddingChild: isAddi
       setFieldValue('is_parent', true);
       setFieldValue('record_kind', 'container');
       setFieldValue('property_type', normalizedCat);
-      setFieldValue('parent_property_id', null);
+      setFieldValue('parent_id', null);
       setFieldValue('parentId', null);
       setFieldValue('apartment_id', null);
     } else {
       // Standalone property selected: record_kind='listing', is_parent=0
       setFieldValue('is_parent', false);
       setFieldValue('record_kind', 'listing');
-      setFieldValue('parent_property_id', null);
+      setFieldValue('parent_id', null);
       setFieldValue('parentId', null);
       setFieldValue('apartment_id', null);
       const newAllowedTypes = PROPERTY_CATEGORY_TYPES[normalizedCat as keyof typeof PROPERTY_CATEGORY_TYPES] || [];
@@ -389,3 +389,4 @@ const styles = StyleSheet.create({
 });
 
 export default StepOwnership;
+

@@ -58,7 +58,7 @@ export interface Property {
   is_video_available: boolean;
   is_parent: boolean;
   planned_units: number | null;
-  parent_property_id: number | null;
+  parent_id: number | null;
   Parent?: {
     property_id: number;
     title: string;
@@ -102,3 +102,4 @@ export interface Deal {
   createdAt?: string;
   updatedAt?: string;
 }
+

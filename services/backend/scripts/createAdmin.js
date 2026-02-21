@@ -1,24 +1,35 @@
 const { sequelize } = require('../config/db');
 const { User } = require('../models');
-const bcrypt = require('bcryptjs');
+const { Op } = require('sequelize');
 
 const createAdmin = async () => {
   try {
     await sequelize.authenticate();
     console.log('Database connected.');
 
-    const adminPhone = '0000000000';
-    const adminEmail = 'admin@realestate.com';
+    const adminPhone = '0774804914';
+    const adminEmail = 'starone310@gmail.com';
     const adminPassword = 'admin123';
     const adminUsername = 'admin';
 
-    // Check if admin exists
-    const existingAdmin = await User.findOne({ where: { phone: adminPhone } });
+    // Find existing admin by phone OR username OR email
+    const existingAdmin = await User.findOne({
+      where: {
+        [Op.or]: [
+          { phone: adminPhone },
+          { username: adminUsername },
+          { email: adminEmail },
+        ],
+      },
+    });
 
     if (existingAdmin) {
       console.log('Admin user already exists.');
       // Update to ensure role is admin
       existingAdmin.role = 'admin';
+      existingAdmin.phone = adminPhone;
+      existingAdmin.email = adminEmail;
+      existingAdmin.username = adminUsername;
       existingAdmin.password_hash = adminPassword; // Hook will hash this
       await existingAdmin.save();
       console.log(`Admin user updated. Phone: ${adminPhone}, Password: ${adminPassword}`);

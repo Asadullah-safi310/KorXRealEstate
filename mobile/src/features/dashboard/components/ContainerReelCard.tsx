@@ -6,23 +6,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AppText } from '../../../components/AppText';
 import { useThemeColor } from '../../../hooks/useThemeColor';
 import { getImageUrl } from '../../../utils/mediaUtils';
+import type { HomeContainerItem } from '../../../services/home.service';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.7;
 const CARD_HEIGHT = CARD_WIDTH * 1.5;
 
 interface ContainerReelCardProps {
-  item: {
-    id: number;
-    title: string;
-    images: string[];
-    city: string;
-    availableUnits: number;
-    totalUnits: number;
-    category: string;
-    forSaleUnits?: number;
-    forRentUnits?: number;
-  };
+  item: HomeContainerItem;
   onPress: () => void;
   badgeColor?: string;
 }
@@ -30,6 +21,7 @@ interface ContainerReelCardProps {
 export const ContainerReelCard = ({ item, onPress, badgeColor }: ContainerReelCardProps) => {
   const themeColors = useThemeColor();
   const [activeImageIndex, setActiveImageIndex] = React.useState(0);
+  const place = [item.district, item.province].filter(Boolean).join(', ');
 
   const unitLabel = item.category === 'apartment' ? 'homes' : 'units';
 
@@ -102,7 +94,7 @@ export const ContainerReelCard = ({ item, onPress, badgeColor }: ContainerReelCa
         <View style={styles.locationRow}>
           <Ionicons name="location" size={12} color="rgba(255,255,255,0.9)" style={{ marginRight: 2 }} />
           <AppText variant="small" weight="medium" color="rgba(255,255,255,0.9)">
-            {item.city}
+            {place}
           </AppText>
         </View>
       </View>

@@ -255,10 +255,10 @@ const CreateDealScreen = observer(() => {
                     </View>
                     <View style={styles.selectionText}>
                       <Text style={[styles.mainText, { color: theme.text }]} numberOfLines={1}>
-                        {selectedProperty.property_type} in {selectedProperty.city}
+                        {selectedProperty.property_type} in {selectedProperty.DistrictData?.name || selectedProperty.ProvinceData?.name || 'N/A'}
                       </Text>
                       <Text style={[styles.subText, { color: theme.subtext }]} numberOfLines={1}>
-                        {selectedProperty.location}
+                        {selectedProperty.address || 'Address not set'}
                       </Text>
                     </View>
                   </View>

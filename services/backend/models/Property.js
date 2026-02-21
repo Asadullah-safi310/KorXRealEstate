@@ -113,10 +113,6 @@ const Property = sequelize.define('Property', {
     allowNull: true,
     comment: 'Full formatted address from Google Maps',
   },
-  city: {
-    type: DataTypes.STRING(100),
-    allowNull: true,
-  },
   area_size: {
     type: DataTypes.STRING(50),
     allowNull: true,
@@ -171,10 +167,6 @@ const Property = sequelize.define('Property', {
   is_parent: {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
-  },
-  parent_property_id: {
-    type: DataTypes.INTEGER,
-    allowNull: true,
   },
   unit_number: {
     type: DataTypes.STRING(100),

@@ -42,8 +42,11 @@
       },
       "permissions": [
         "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION"
-      ]
+      ],
+      "package": "com.anonymous.KorX"
     },
     "web": {
       "output": "static",
@@ -67,6 +70,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "jsEngine": "hermes",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "f6841b48-5135-41d9-9f84-200a6518026e"
+      }
     }
   }
 }

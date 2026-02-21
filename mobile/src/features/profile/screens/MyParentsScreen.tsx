@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, 
 import { observer } from 'mobx-react-lite';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import parentStore from '../../../stores/ParentStore';
 import authStore from '../../../stores/AuthStore';
 import { useThemeColor } from '../../../hooks/useThemeColor';
@@ -23,13 +24,19 @@ const MyParentsScreen = observer(({ category }: Props) => {
                category === 'market' ? 'storefront' : 'account-group';
 
   const fetchParents = useCallback(async () => {
-    if (!authStore.user) return;
+    if (!authStore.isAuthenticated) return;
     await parentStore.fetchAgentParents(category);
-  }, [category]);
+  }, [category, authStore.isAuthenticated, authStore.user?.user_id]);
 
   useEffect(() => {
     fetchParents();
   }, [fetchParents]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchParents();
+    }, [fetchParents])
+  );
 
   const onRefresh = () => {
     fetchParents();
@@ -61,11 +68,13 @@ const MyParentsScreen = observer(({ category }: Props) => {
 
   const renderItem = ({ item }: any) => {
     if (!item) return null;
+    const itemId = item.id ?? item.property_id;
+    if (!itemId) return null;
     const availableUnits = getAvailableUnitsCount(item);
     return (
       <TouchableOpacity 
         style={[styles.card, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
-        onPress={() => router.push(`/parent/${category}/${item.id}`)}
+        onPress={() => router.push(`/parent/${category}/${itemId}`)}
       >
         <View style={[styles.imagePlaceholder, { backgroundColor: themeColors.background }]}>
           <MaterialCommunityIcons name={icon as any} size={32} color={themeColors.primary} />
@@ -119,10 +128,20 @@ const MyParentsScreen = observer(({ category }: Props) => {
         <View style={styles.centered}>
           <ActivityIndicator size="small" color={themeColors.primary} />
         </View>
+      ) : parentStore.error ? (
+        <View style={styles.emptyContainer}>
+          <View style={[styles.emptyIconBox, { backgroundColor: themeColors.card }]}>
+            <Ionicons name="alert-circle-outline" size={60} color={themeColors.danger} />
+          </View>
+          <Text style={[styles.emptyTitle, { color: themeColors.text }]}>Failed to load {category}s</Text>
+          <Text style={[styles.emptySubtitle, { color: themeColors.subtext }]}>
+            {parentStore.error}
+          </Text>
+        </View>
       ) : (
         <FlatList
           data={parentStore.parents || []}
-          keyExtractor={(item) => item.id.toString()}
+          keyExtractor={(item, index) => String(item?.id ?? item?.property_id ?? index)}
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
           refreshControl={

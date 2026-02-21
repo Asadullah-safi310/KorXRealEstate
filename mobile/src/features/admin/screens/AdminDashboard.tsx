@@ -1,36 +1,63 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet, RefreshControl, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
+import { observer } from 'mobx-react-lite';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { observer } from 'mobx-react-lite';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScreenLayout from '../../../components/ScreenLayout';
 import { AppText } from '../../../components/AppText';
 import { useThemeColor } from '../../../hooks/useThemeColor';
 import { adminService } from '../../../services/admin.service';
-import AdminStatCard from '../components/AdminStatCard';
+import { useLanguage } from '../../../contexts/LanguageContext';
+
+const { width } = Dimensions.get('window');
+
+const StatCard = ({ icon, label, value, color }: any) => {
+  const themeColors = useThemeColor();
+  return (
+    <View style={[styles.statCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+      <View style={[styles.statIconBadge, { backgroundColor: color + '15' }]}>
+        {React.cloneElement(icon, { size: 20, color })}
+      </View>
+      <View style={styles.statInfo}>
+        <AppText variant="title" weight="bold">{value}</AppText>
+        <AppText variant="caption" weight="medium" color={themeColors.subtext}>{label}</AppText>
+      </View>
+    </View>
+  );
+};
 
 const AdminDashboard = observer(() => {
-  const router = useRouter();
-  const themeColors = useThemeColor();
+  const [stats, setStats] = useState<any>({
+    totalUsers: 0,
+    totalProperties: 0,
+    totalDeals: 0,
+    propertiesForSale: 0,
+    propertiesForRent: 0,
+    totalAgents: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [stats, setStats] = useState<any>(null);
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const themeColors = useThemeColor();
+  const { t } = useLanguage();
 
-  const fetchStats = useCallback(async () => {
+  const fetchStats = async () => {
     try {
       const response = await adminService.getStats();
       setStats(response.data);
     } catch (error) {
-      console.error('Failed to fetch admin stats:', error);
+      console.error('Error fetching admin stats:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
     fetchStats();
-  }, [fetchStats]);
+  }, []);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -39,280 +66,233 @@ const AdminDashboard = observer(() => {
 
   if (loading && !refreshing) {
     return (
-      <View style={[styles.center, { backgroundColor: themeColors.background }]}>
-        <ActivityIndicator size="large" color={themeColors.primary} />
-      </View>
+      <ScreenLayout backgroundColor={themeColors.background}>
+        <View style={[styles.centered, { backgroundColor: themeColors.background }]}>
+          <ActivityIndicator size="small" color={themeColors.primary} />
+        </View>
+      </ScreenLayout>
     );
   }
 
   return (
-    <ScreenLayout 
-      backgroundColor={themeColors.background} 
-      scrollable 
+    <ScreenLayout
+      scrollable
+      backgroundColor={themeColors.background}
+      bottomSpacing={100}
       scrollProps={{
-        refreshControl: <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        refreshControl: <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />,
+        showsVerticalScrollIndicator: false,
       }}
     >
-      <View style={styles.container}>
-        <View style={styles.header}>
+      <View style={[styles.premiumHeader, { paddingTop: insets.top + 10 }]}>
+        <View style={styles.premiumHeaderTop}>
           <View>
-            <AppText variant="h1" weight="bold">Admin Panel</AppText>
-            <AppText variant="body" color={themeColors.subtext}>System Insights & Management</AppText>
+            <AppText variant="h1" weight="bold" color={themeColors.text}>{t('dashboard.adminConsole')}</AppText>
+            <AppText variant="small" weight="medium" color={themeColors.subtext}>{t('dashboard.systemStatus')}</AppText>
           </View>
-          <TouchableOpacity 
-            style={[styles.profileBtn, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
-            onPress={() => router.push('/profile')}
+          <TouchableOpacity
+            style={[styles.premiumProfileBtn, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
+            onPress={() => router.push('/(tabs)/profile')}
           >
-            <Ionicons name="person-outline" size={24} color={themeColors.primary} />
+            <Ionicons name="shield-checkmark" size={24} color={themeColors.primary} />
           </TouchableOpacity>
         </View>
 
-        {/* Stats Grid */}
+        <View style={[styles.premiumStatsRow, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+          <View style={styles.premiumMetaItem}>
+            <AppText variant="h3" weight="bold" color={themeColors.text}>{stats.totalUsers}</AppText>
+            <AppText variant="caption" weight="semiBold" color={themeColors.subtext} style={{ textTransform: 'uppercase' }}>{t('dashboard.users')}</AppText>
+          </View>
+          <View style={[styles.premiumMetaDivider, { backgroundColor: themeColors.border }]} />
+          <View style={styles.premiumMetaItem}>
+            <AppText variant="h3" weight="bold" color={themeColors.text}>{stats.totalAgents || 0}</AppText>
+            <AppText variant="caption" weight="semiBold" color={themeColors.subtext} style={{ textTransform: 'uppercase' }}>{t('dashboard.agents')}</AppText>
+          </View>
+          <View style={[styles.premiumMetaDivider, { backgroundColor: themeColors.border }]} />
+          <View style={styles.premiumMetaItem}>
+            <AppText variant="h3" weight="bold" color={themeColors.text}>{stats.totalDeals}</AppText>
+            <AppText variant="caption" weight="semiBold" color={themeColors.subtext} style={{ textTransform: 'uppercase' }}>{t('deals.deals')}</AppText>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.mainContent}>
+        <View style={styles.sectionHeaderRow}>
+          <AppText variant="title" weight="bold" color={themeColors.text}>{t('dashboard.globalStatistics')}</AppText>
+        </View>
+
         <View style={styles.statsGrid}>
-          <AdminStatCard 
-            title="Total Users" 
-            value={stats?.totalUsers || 0} 
-            icon="people" 
-            color="#3b82f6" 
+          <StatCard
+            label={t('dashboard.totalProperties')}
+            value={stats.totalProperties}
+            color={themeColors.info}
+            icon={<Ionicons name="business" />}
+          />
+          <StatCard
+            label={t('dashboard.activeDeals')}
+            value={stats.totalDeals}
+            color={themeColors.warning}
+            icon={<MaterialCommunityIcons name="handshake" />}
+          />
+          <StatCard
+            label={t('property.forSale')}
+            value={stats.propertiesForSale}
+            color={themeColors.success}
+            icon={<Ionicons name="pricetag" />}
+          />
+          <StatCard
+            label={t('property.forRent')}
+            value={stats.propertiesForRent}
+            color={themeColors.primary}
+            icon={<Ionicons name="key" />}
+          />
+        </View>
+
+        <View style={[styles.sectionHeaderRow, { marginTop: 20 }]}>
+          <AppText variant="title" weight="bold" color={themeColors.text}>{t('dashboard.managementTools')}</AppText>
+        </View>
+
+        <View style={styles.adminToolGrid}>
+          <TouchableOpacity
+            style={[styles.premiumToolCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
             onPress={() => router.push('/admin/users')}
-          />
-          <AdminStatCard 
-            title="Total Agents" 
-            value={stats?.totalAgents || 0} 
-            icon="shield-checkmark" 
-            color="#10b981" 
-            onPress={() => router.push('/admin/agents')}
-          />
-          <AdminStatCard 
-            title="Properties" 
-            value={stats?.totalProperties || 0} 
-            icon="business" 
-            color="#f59e0b" 
+          >
+            <View style={[styles.toolIconContainer, { backgroundColor: themeColors.infoSubtle }]}>
+              <Ionicons name="people" size={24} color={themeColors.info} />
+            </View>
+            <AppText variant="body" weight="bold" color={themeColors.text}>{t('dashboard.users')}</AppText>
+            <AppText variant="caption" color={themeColors.subtext}>{t('dashboard.rolesPermissions')}</AppText>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.premiumToolCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
             onPress={() => router.push('/admin/properties')}
-          />
-          <AdminStatCard 
-            title="Total Deals" 
-            value={stats?.totalDeals || 0} 
-            icon="handshake" 
-            iconFamily="MaterialCommunityIcons"
-            color="#8b5cf6" 
+          >
+            <View style={[styles.toolIconContainer, { backgroundColor: themeColors.successSubtle }]}>
+              <Ionicons name="business" size={24} color={themeColors.success} />
+            </View>
+            <AppText variant="body" weight="bold" color={themeColors.text}>{t('property.properties')}</AppText>
+            <AppText variant="caption" color={themeColors.subtext}>{t('dashboard.reviewAllListings')}</AppText>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.premiumToolCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
+            onPress={() => router.push('/admin/agents')}
+          >
+            <View style={[styles.toolIconContainer, { backgroundColor: themeColors.warningSubtle }]}>
+              <Ionicons name="shield-checkmark-outline" size={24} color={themeColors.warning} />
+            </View>
+            <AppText variant="body" weight="bold" color={themeColors.text}>{t('dashboard.agents')}</AppText>
+            <AppText variant="caption" color={themeColors.subtext}>{t('dashboard.analyzeGrowth')}</AppText>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.premiumToolCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
             onPress={() => router.push('/admin/deals')}
-          />
-        </View>
-
-        {/* Listing Insights */}
-        <View style={[styles.section, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
-          <AppText variant="title" weight="bold" style={styles.sectionTitle}>Listing Type</AppText>
-          <View style={styles.dealStats}>
-            <TouchableOpacity 
-              style={styles.dealStatItem}
-              onPress={() => router.push('/admin/properties?purpose=SALE')}
-            >
-              <AppText variant="h3" weight="bold" color="#f59e0b">{stats?.propertiesForSale || 0}</AppText>
-              <AppText variant="small" color={themeColors.subtext}>For Sale</AppText>
-            </TouchableOpacity>
-            <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
-            <TouchableOpacity 
-              style={styles.dealStatItem}
-              onPress={() => router.push('/admin/properties?purpose=RENT')}
-            >
-              <AppText variant="h3" weight="bold" color="#8b5cf6">{stats?.propertiesForRent || 0}</AppText>
-              <AppText variant="small" color={themeColors.subtext}>For Rent</AppText>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Deal Insights */}
-        <View style={[styles.section, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
-          <AppText variant="title" weight="bold" style={styles.sectionTitle}>Deal Status</AppText>
-          <View style={styles.dealStats}>
-            <View style={styles.dealStatItem}>
-              <AppText variant="h3" weight="bold" color="#3b82f6">{stats?.activeDeals || 0}</AppText>
-              <AppText variant="small" color={themeColors.subtext}>Active</AppText>
+          >
+            <View style={[styles.toolIconContainer, { backgroundColor: '#8b5cf615' }]}>
+              <MaterialCommunityIcons name="handshake" size={24} color="#8b5cf6" />
             </View>
-            <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
-            <View style={styles.dealStatItem}>
-              <AppText variant="h3" weight="bold" color="#10b981">{stats?.completedDeals || 0}</AppText>
-              <AppText variant="small" color={themeColors.subtext}>Completed</AppText>
-            </View>
-            <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
-            <View style={styles.dealStatItem}>
-              <AppText variant="h3" weight="bold" color="#ef4444">{stats?.canceledDeals || 0}</AppText>
-              <AppText variant="small" color={themeColors.subtext}>Canceled</AppText>
-            </View>
-          </View>
-        </View>
-
-        {/* Recent Properties */}
-        <View style={styles.listSection}>
-          <View style={styles.listHeader}>
-            <AppText variant="title" weight="bold">Recent Properties</AppText>
-            <TouchableOpacity onPress={() => router.push('/admin/properties')}>
-              <AppText variant="small" color={themeColors.primary}>View All</AppText>
-            </TouchableOpacity>
-          </View>
-          {stats?.recentProperties?.map((prop: any) => (
-            <TouchableOpacity 
-              key={prop.property_id} 
-              style={[styles.listItem, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
-              onPress={() => router.push(`/property/${prop.property_id}`)}
-            >
-              <View style={styles.listItemInfo}>
-                <AppText variant="body" weight="bold" numberOfLines={1}>{prop.title}</AppText>
-                <AppText variant="caption" color={themeColors.subtext}>
-                  {prop.ProvinceData?.name} • Owned by {prop.Owner?.full_name}
-                </AppText>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={themeColors.border} />
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Recent Users */}
-        <View style={styles.listSection}>
-          <View style={styles.listHeader}>
-            <AppText variant="title" weight="bold">Recent Users</AppText>
-            <TouchableOpacity onPress={() => router.push('/admin/users')}>
-              <AppText variant="small" color={themeColors.primary}>View All</AppText>
-            </TouchableOpacity>
-          </View>
-          {stats?.recentUsers?.map((user: any) => (
-            <TouchableOpacity 
-              key={user.user_id} 
-              style={[styles.listItem, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
-              onPress={() => router.push(`/admin/users?id=${user.user_id}`)}
-            >
-              <View style={styles.listItemInfo}>
-                <AppText variant="body" weight="bold">{user.full_name}</AppText>
-                <AppText variant="caption" color={themeColors.subtext}>
-                  {user.email} • {user.role.toUpperCase()}
-                </AppText>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={themeColors.border} />
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Management Quick Links */}
-        <View style={styles.listSection}>
-          <AppText variant="title" weight="bold" style={{ marginBottom: 12 }}>Management</AppText>
-          <View style={styles.quickLinks}>
-            <QuickLink 
-              title="User Control" 
-              icon="person-add" 
-              onPress={() => router.push('/admin/users')} 
-              theme={themeColors} 
-            />
-            <QuickLink 
-              title="Property Audit" 
-              icon="business" 
-              onPress={() => router.push('/admin/properties')} 
-              theme={themeColors} 
-            />
-            <QuickLink 
-              title="Transaction Log" 
-              icon="list" 
-              onPress={() => router.push('/admin/deals')} 
-              theme={themeColors} 
-            />
-          </View>
+            <AppText variant="body" weight="bold" color={themeColors.text}>{t('deals.deals')}</AppText>
+            <AppText variant="caption" color={themeColors.subtext}>{t('dashboard.systemPlatform')}</AppText>
+          </TouchableOpacity>
         </View>
       </View>
     </ScreenLayout>
   );
 });
 
-const QuickLink = ({ title, icon, onPress, theme }: any) => (
-  <TouchableOpacity 
-    style={[styles.quickLink, { backgroundColor: theme.card, borderColor: theme.border }]}
-    onPress={onPress}
-  >
-    <Ionicons name={icon} size={24} color={theme.primary} />
-    <AppText variant="tiny" weight="bold" style={{ marginTop: 8 }}>{title}</AppText>
-  </TouchableOpacity>
-);
-
 const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-  },
-  center: {
+  centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  header: {
+  premiumHeader: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  premiumHeaderTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
-  profileBtn: {
+  premiumProfileBtn: {
     width: 48,
     height: 48,
     borderRadius: 12,
-    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+  },
+  premiumStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+  },
+  premiumMetaItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  premiumMetaDivider: {
+    width: 1,
+    height: 24,
+  },
+  mainContent: {
+    padding: 20,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    gap: 12,
   },
-  section: {
+  statCard: {
+    width: (width - 52) / 2,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  statIconBadge: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statInfo: {
+    flex: 1,
+  },
+  adminToolGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  premiumToolCard: {
+    width: (width - 52) / 2,
     padding: 20,
     borderRadius: 16,
     borderWidth: 1,
-    marginBottom: 24,
   },
-  sectionTitle: {
-    marginBottom: 16,
-  },
-  dealStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-  },
-  dealStatItem: {
-    alignItems: 'center',
-  },
-  divider: {
-    width: 1,
-    height: 30,
-  },
-  listSection: {
-    marginBottom: 24,
-  },
-  listHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  listItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
+  toolIconContainer: {
+    width: 48,
+    height: 48,
     borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 8,
-  },
-  listItemInfo: {
-    flex: 1,
-  },
-  quickLinks: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  quickLink: {
-    flex: 1,
-    aspectRatio: 1,
-    borderRadius: 16,
-    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 12,
+    marginBottom: 14,
   },
 });
 

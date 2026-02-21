@@ -35,6 +35,13 @@ const PropertyCreateScreen = observer(() => {
       return;
     }
 
+    // Creation is allowed for agents/admins. Editing remains allowed by existing rules.
+    if (!isEditing && !authStore.isAgent) {
+      Alert.alert('Access denied', 'Only agents and admins can create properties.');
+      router.back();
+      return;
+    }
+
     if (isEditing) {
       try {
         setInitialLoading(true);
@@ -74,6 +81,7 @@ const PropertyCreateScreen = observer(() => {
             if (normalizedCategory === 'apartment') {
               normalizedCategory = 'tower';
             }
+            const defaultAgentId = property.agent_id || property.created_by_user_id || '';
             
             setFormInitialValues({
               ...baseInitialValues,
@@ -86,15 +94,16 @@ const PropertyCreateScreen = observer(() => {
               province_id: property.province_id ? Number(property.province_id) : '',
               district_id: property.district_id ? Number(property.district_id) : '',
               area_id: property.area_id ? Number(property.area_id) : '',
-              location: property.location || property.address || '',
-              address: property.address || property.location || '',
+              location: property.address || '',
+              address: property.address || '',
               latitude: property.latitude ? Number(property.latitude) : null,
               longitude: property.longitude ? Number(property.longitude) : null,
               media: [],
               existingMedia: (property.photos || []).map((p: string) => ({ url: p, type: 'photo' })),
               deletedMedia: [],
               amenities: parsedAmenities,
-              agent_id: String(property.agent_id || ''),
+              agent_id: String(defaultAgentId),
+              created_by_user_id: property.created_by_user_id || null,
               owner_person_id: property.owner_person_id || '',
               owner_name: property.owner_name || '',
               total_floors: property.total_floors || property.details?.total_floors || '',
@@ -111,9 +120,11 @@ const PropertyCreateScreen = observer(() => {
             // Regular property/listing editing
             const isSale = !!property.is_available_for_sale || !!property.forSale;
             const isRent = !!property.is_available_for_rent || !!property.forRent;
+            const defaultAgentId = property.agent_id || property.created_by_user_id || '';
 
             setFormInitialValues({
-              agent_id: String(property.agent_id || ''),
+              agent_id: String(defaultAgentId),
+              created_by_user_id: property.created_by_user_id || null,
               owner_person_id: property.owner_person_id || '',
               owner_name: property.owner_name || '',
               property_type: property.property_type || 'house',
@@ -126,8 +137,8 @@ const PropertyCreateScreen = observer(() => {
               province_id: property.province_id ? Number(property.province_id) : (property.provinceId ? Number(property.provinceId) : ''),
               district_id: property.district_id ? Number(property.district_id) : (property.districtId ? Number(property.districtId) : ''),
               area_id: property.area_id ? Number(property.area_id) : (property.areaId ? Number(property.areaId) : ''),
-              location: property.location || property.address || '',
-              address: property.address || property.location || '',
+              location: property.address || '',
+              address: property.address || '',
               latitude: property.latitude ? Number(property.latitude) : null,
               longitude: property.longitude ? Number(property.longitude) : null,
               is_available_for_sale: isSale,
@@ -144,7 +155,7 @@ const PropertyCreateScreen = observer(() => {
               amenities: parsedAmenities,
               is_parent: !!property.is_parent,
               property_category: property.property_category || 'normal',
-              parent_property_id: property.parent_property_id,
+              parent_id: property.parent_id,
               apartment_id: property.apartment_id,
               unit_number: property.unit_number || '',
               floor: property.floor || '',
@@ -196,20 +207,20 @@ const PropertyCreateScreen = observer(() => {
 
           setFormInitialValues({
             ...baseInitialValues,
-            agent_id: authStore.user?.role === 'agent' ? String(authStore.user?.person_id || authStore.user?.user_id || '') : '',
+            agent_id: String(authStore.user?.user_id || ''),
             property_type: defaultType,
             purpose: parent.purpose || 'sale',
             // Inherit location from parent
             province_id: parent.province_id ? Number(parent.province_id) : '',
             district_id: parent.district_id ? Number(parent.district_id) : '',
             area_id: parent.area_id ? Number(parent.area_id) : '',
-            location: parent.location || parent.address || '',
+            location: parent.address || '',
             latitude: parent.latitude ? Number(parent.latitude) : null,
             longitude: parent.longitude ? Number(parent.longitude) : null,
             // Child units: is_parent=0, record_kind='listing', category inherited
             is_parent: false,
             record_kind: 'listing',
-            parent_property_id: (parentId && parentId !== 'undefined') ? Number(parentId) : null,
+            parent_id: (parentId && parentId !== 'undefined') ? Number(parentId) : null,
             parentId: (parentId && parentId !== 'undefined') ? Number(parentId) : null,
             apartment_id: (parentId && parentId !== 'undefined') ? Number(parentId) : null,
             property_category: activeCategory, // Inherited from parent (tower, market, or sharak)
@@ -250,7 +261,7 @@ const PropertyCreateScreen = observer(() => {
       
       setFormInitialValues({
         ...baseInitialValues,
-        agent_id: authStore.user?.role === 'agent' ? String(authStore.user?.person_id || authStore.user?.user_id || '') : '',
+        agent_id: String(authStore.user?.user_id || ''),
         property_category: activeCategory, // Must be tower, market, or sharak
         is_parent: true, // Parent containers have is_parent=1
         record_kind: 'container', // Parent containers are containers, not listings
@@ -272,13 +283,13 @@ const PropertyCreateScreen = observer(() => {
       });
       setInitialLoading(false);
     } else {
-      // Standalone Property Logic: category='normal', record_kind='listing', is_parent=0, parent_property_id=NULL
+      // Standalone Property Logic: category='normal', record_kind='listing', is_parent=0, parent_id=NULL
       setFormInitialValues({
         ...baseInitialValues,
         property_category: 'normal', // Standalone properties are always 'normal'
         is_parent: false, // Standalone properties are not parents (is_parent=0)
         record_kind: 'listing', // Standalone properties are listings
-        agent_id: authStore.user?.role === 'agent' ? String(authStore.user?.person_id || authStore.user?.user_id || '') : '',
+        agent_id: String(authStore.user?.user_id || ''),
         media: [],
         existingMedia: [],
         title: '',
@@ -296,7 +307,7 @@ const PropertyCreateScreen = observer(() => {
       });
       setInitialLoading(false);
     }
-  }, [id, parentId, category, isEditing, isAddingChild, isCreatingParent, router, isLoading, isAuthenticated]);
+  }, [id, parentId, category, isEditing, isAddingChild, isCreatingParent, router, isLoading, isAuthenticated, authStore.user?.role, authStore.user?.user_id]);
 
   useEffect(() => {
     fetchPropertyData();
@@ -340,3 +351,4 @@ const styles = StyleSheet.create({
 });
 
 export default PropertyCreateScreen;
+

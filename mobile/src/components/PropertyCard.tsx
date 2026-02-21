@@ -186,7 +186,7 @@ const PropertyCard = observer(({
     // Create default title
     const propType = property.property_type || 'Property';
     
-    if (property.parent_property_id) {
+    if (property.parent_id) {
       // For units in a building
       if (property.unit_number && property.floor) {
         propertyTitle = `${propType} ${property.unit_number} (Floor ${property.floor})`;
@@ -216,23 +216,38 @@ const PropertyCard = observer(({
 
   const addressParts: string[] = [];
   const areaName = property.AreaData?.name || property.area?.name || property.area_name;
-  const cityName = property.ProvinceData?.name || property.province?.name || property.city || property.province_name;
+  const districtName = property.DistrictData?.name || property.district?.name || property.district_name;
+  const provinceName = property.ProvinceData?.name || property.province?.name || property.province_name;
 
   if (areaName) {
     let cleanedArea = areaName.replace(/(District|Nahiya)\s+\d+/gi, '').trim();
     cleanedArea = cleanedArea.replace(/^[\s,]+|[\s,]+$/g, '').trim();
     if (cleanedArea) addressParts.push(cleanedArea);
-  } else if (property.address || property.location) {
-    let addr = (property.address || property.location);
+  } else if (property.address) {
+    let addr = property.address;
     let cleanedAddr = addr.replace(/(District|Nahiya)\s+\d+/gi, '').trim();
     cleanedAddr = cleanedAddr.replace(/^[\s,]+|[\s,]+$/g, '').trim();
     if (cleanedAddr) addressParts.push(cleanedAddr.split(',')[0].trim());
   }
 
-  if (cityName) {
-    addressParts.push(cityName);
+  if (districtName) {
+    addressParts.push(districtName);
+  }
+  if (provinceName) {
+    addressParts.push(provinceName);
   }
   const fullAddress = addressParts.length > 0 ? addressParts.join(', ') : 'Location not specified';
+  const parentTitle = property.parent_id
+    ? (
+      property.Parent?.title ||
+      property.parent?.title ||
+      property.parent_title ||
+      property.parent_name ||
+      property.Parent?.property_type ||
+      ''
+    )
+    : '';
+  const hasParentTitle = !!parentTitle;
   const normalizedPropertyType = String(property.property_type || '').toLowerCase();
   const areaMetaValue = property.area_size ? String(property.area_size) : '-';
 
@@ -473,6 +488,9 @@ const PropertyCard = observer(({
 
                 <AppText variant="small" weight="bold" color={themeColors.white} numberOfLines={2} style={styles.horizontalTitleText}>
                   {propertyTitle}
+                  {hasParentTitle ? (
+                    <Text style={[styles.horizontalParentInlineText, { color: 'rgba(255,255,255,0.86)' }]}> in {parentTitle}</Text>
+                  ) : null}
                 </AppText>
 
                 <View style={styles.horizontalLocation}>
@@ -693,37 +711,42 @@ const PropertyCard = observer(({
                     <View style={{ flex: 1 }}>
                       <AppText variant="body" weight="bold" numberOfLines={1} style={{ marginBottom: 4, fontSize: 14, color: themeColors.text }}>
                         {propertyTitle}
+                        {hasParentTitle ? (
+                          <Text style={[styles.compactParentInlineText, { color: themeColors.subtext }]}> in {parentTitle}</Text>
+                        ) : null}
                       </AppText>
-                      <AppText variant="tiny" color={themeColors.subtext} numberOfLines={1} style={{ marginBottom: 8, fontSize: 10 }}>
-                        {property.parent_property_id && property.unit_number ? `${typeLabel} in ${fullAddress}` : fullAddress}
-                      </AppText>
-                    </View>
-                    {!isContainer && (
-                      <View style={styles.compactBedsAndBaths}>
-                        {listingMetaItems.map((item, metaIdx) => (
-                          <View key={`compact-meta-${metaIdx}`} style={[styles.compactMetaItemBadge, metaBadgeThemeStyle]}>
-                            {item.provider === 'mci' ? (
-                              <MaterialCommunityIcons name={item.icon as any} size={13} color={themeColors.subtext} />
-                            ) : (
-                              <Ionicons name={item.icon as any} size={13} color={themeColors.subtext} />
-                            )}
-                            <AppText variant="tiny" weight="medium" color={themeColors.text} style={{ marginLeft: 3, fontSize: 11 }}>
-                              {item.value}
-                            </AppText>
+                      <View style={styles.compactAddressMetaRow}>
+                        <AppText variant="tiny" color={themeColors.subtext} numberOfLines={1} style={{ flex: 1, fontSize: 10 }}>
+                          {property.parent_id && property.unit_number ? `${typeLabel} in ${fullAddress}` : fullAddress}
+                        </AppText>
+                        {!isContainer && (
+                          <View style={styles.compactBedsAndBaths}>
+                            {listingMetaItems.map((item, metaIdx) => (
+                              <View key={`compact-meta-${metaIdx}`} style={[styles.compactMetaItemBadge, metaBadgeThemeStyle]}>
+                                {item.provider === 'mci' ? (
+                                  <MaterialCommunityIcons name={item.icon as any} size={13} color={themeColors.subtext} />
+                                ) : (
+                                  <Ionicons name={item.icon as any} size={13} color={themeColors.subtext} />
+                                )}
+                                <AppText variant="tiny" weight="medium" color={themeColors.text} style={{ marginLeft: 3, fontSize: 11 }}>
+                                  {item.value}
+                                </AppText>
+                              </View>
+                            ))}
                           </View>
-                        ))}
+                        )}
+                        {isContainer && (
+                          <View style={styles.compactBedsAndBaths}>
+                            <View style={[styles.compactMetaItemBadge, metaBadgeThemeStyle]}>
+                              <Ionicons name="business-outline" size={13} color={themeColors.subtext} />
+                              <AppText variant="tiny" weight="medium" color={themeColors.text} style={{ marginLeft: 3, fontSize: 11 }}>
+                                {property.total_children || 0}
+                              </AppText>
+                            </View>
+                          </View>
+                        )}
                       </View>
-                    )}
-                    {isContainer && (
-                      <View style={styles.compactBedsAndBaths}>
-                        <View style={[styles.compactMetaItemBadge, metaBadgeThemeStyle]}>
-                          <Ionicons name="business-outline" size={13} color={themeColors.subtext} />
-                          <AppText variant="tiny" weight="medium" color={themeColors.text} style={{ marginLeft: 3, fontSize: 11 }}>
-                            {property.total_children || 0}
-                          </AppText>
-                        </View>
-                      </View>
-                    )}
+                    </View>
                   </>
                 </View>
               )}
@@ -775,6 +798,9 @@ const PropertyCard = observer(({
                 </View>
                 <AppText variant="tiny" weight="bold" color={themeColors.white} numberOfLines={1} style={styles.smallCompactTitle}>
                   {propertyTitle}
+                  {hasParentTitle ? (
+                    <Text style={styles.smallCompactParentInlineText}> in {parentTitle}</Text>
+                  ) : null}
                 </AppText>
                 {showLocationInSmall && (
                   <AppText variant="tiny" weight="medium" color={themeColors.white} numberOfLines={1} style={styles.smallCompactLocation}>
@@ -946,49 +972,54 @@ const PropertyCard = observer(({
                 <AppText 
                   variant="body" 
                   weight="bold" 
-                  numberOfLines={2} 
+                  numberOfLines={hasParentTitle ? 1 : 2} 
                   style={{ fontSize: 14, lineHeight: 20, color: themeColors.text, marginBottom: 6 }}
                 >
                   {propertyTitle}
+                  {hasParentTitle ? (
+                    <Text style={[styles.defaultParentInlineText, { color: themeColors.subtext }]}> in {parentTitle}</Text>
+                  ) : null}
                 </AppText>
-                <View style={styles.locationRow}>
-                  <Ionicons name="location-outline" size={10} color={themeColors.subtext} />
-                  <AppText 
-                    variant="small" 
-                    color={themeColors.subtext} 
-                    numberOfLines={1} 
-                    style={{ flex: 1, marginLeft: 4, fontSize: 9 }}
-                  >
-                    {fullAddress || 'Location details'}
-                  </AppText>
+                <View style={styles.defaultAddressMetaRow}>
+                  <View style={[styles.locationRow, { flex: 1 }]}>
+                    <Ionicons name="location-outline" size={10} color={themeColors.subtext} />
+                    <AppText 
+                      variant="small" 
+                      color={themeColors.subtext} 
+                      numberOfLines={1} 
+                      style={{ flex: 1, marginLeft: 4, fontSize: 9 }}
+                    >
+                      {fullAddress || 'Location details'}
+                    </AppText>
+                  </View>
+                  {!isContainer && (
+                    <View style={styles.bedsAndBathsContainer}>
+                      {listingMetaItems.map((item, metaIdx) => (
+                        <View key={`default-meta-${metaIdx}`} style={[styles.bedsAndBathsItem, metaBadgeThemeStyle]}>
+                          {item.provider === 'mci' ? (
+                            <MaterialCommunityIcons name={item.icon as any} size={13} color={themeColors.subtext} />
+                          ) : (
+                            <Ionicons name={item.icon as any} size={13} color={themeColors.subtext} />
+                          )}
+                          <Text style={{ marginLeft: 3, fontSize: 11, fontWeight: '500', color: themeColors.text }}>
+                            {item.value}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                  {isContainer && (
+                    <View style={styles.bedsAndBathsContainer}>
+                      <View style={[styles.bedsAndBathsItem, metaBadgeThemeStyle]}>
+                        <Ionicons name="business-outline" size={13} color={themeColors.subtext} />
+                        <Text style={{ marginLeft: 3, fontSize: 11, fontWeight: '500', color: themeColors.text }}>
+                          {property.total_children || 0}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
                 </View>
               </View>
-              {!isContainer && (
-                <View style={styles.bedsAndBathsContainer}>
-                  {listingMetaItems.map((item, metaIdx) => (
-                    <View key={`default-meta-${metaIdx}`} style={[styles.bedsAndBathsItem, metaBadgeThemeStyle]}>
-                      {item.provider === 'mci' ? (
-                        <MaterialCommunityIcons name={item.icon as any} size={13} color={themeColors.subtext} />
-                      ) : (
-                        <Ionicons name={item.icon as any} size={13} color={themeColors.subtext} />
-                      )}
-                      <Text style={{ marginLeft: 3, fontSize: 11, fontWeight: '500', color: themeColors.text }}>
-                        {item.value}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-              {isContainer && (
-                <View style={styles.bedsAndBathsContainer}>
-                  <View style={[styles.bedsAndBathsItem, metaBadgeThemeStyle]}>
-                    <Ionicons name="business-outline" size={13} color={themeColors.subtext} />
-                    <Text style={{ marginLeft: 3, fontSize: 11, fontWeight: '500', color: themeColors.text }}>
-                      {property.total_children || 0}
-                    </Text>
-                  </View>
-                </View>
-              )}
             </View>
             
             <View style={[styles.agentRow, { borderTopColor: dividerColor }]}>
@@ -1186,6 +1217,10 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginBottom: 2,
   },
+  smallCompactParentInlineText: {
+    fontSize: 7,
+    opacity: 0.92,
+  },
   smallCompactLocation: {
     fontSize: 7,
     opacity: 0.9,
@@ -1216,6 +1251,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
+  },
+  compactAddressMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
   },
   compactMetaItemBadge: {
     flexDirection: 'row',
@@ -1388,6 +1429,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
+  defaultAddressMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   bedsAndBathsItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1554,7 +1600,11 @@ const styles = StyleSheet.create({
   horizontalTitleText: {
     fontSize: 12,
     lineHeight: 16,
-    marginBottom: 6,
+    marginBottom: 4,
+  },
+  horizontalParentInlineText: {
+    fontSize: 9,
+    opacity: 0.9,
   },
   horizontalLocation: {
     flexDirection: 'row',
@@ -1606,6 +1656,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  compactParentInlineText: {
+    fontSize: 10,
+  },
+  defaultParentInlineText: {
+    fontSize: 9,
+  },
 });
 
 export default PropertyCard;
+

@@ -546,9 +546,9 @@ const PropertyDetailsScreen = observer(() => {
   const isChild = property.parent_id != null;
 
   const buildPropertyAddress = () => {
-    const street = property.address || property.location;
+    const street = property.address;
     const area = property.AreaData?.name || property.area?.name || property.area_name;
-    const city = property.DistrictData?.name || property.city || property.district || property.district_name;
+    const city = property.DistrictData?.name || property.district || property.district_name;
     const province = property.ProvinceData?.name || property.province?.name || property.province_name;
 
     const parts = street ? [street, area, city, province] : [area, city, province];

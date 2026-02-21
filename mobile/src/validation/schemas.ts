@@ -69,8 +69,6 @@ export const propertySchema = Yup.object().shape({
   ...propertyBaseSchema,
   person_id: Yup.string().required('Owner is required'),
   agent_id: Yup.string().required('Agent is required'),
-  location: Yup.string().required('Location is required'),
-  city: Yup.string().required('City is required'),
 }).test('at-least-one-purpose', 'Must be available for either sale or rent', function(value) {
   return value.is_available_for_sale || value.is_available_for_rent;
 });

@@ -73,7 +73,7 @@ const getPersons = async (req, res) => {
         {
           model: Property,
           as: 'OwnedProperties',
-          attributes: ['property_id', 'property_type', 'city'],
+          attributes: ['property_id', 'property_type', 'address'],
           where: { record_kind: 'listing' },
           required: false
         },

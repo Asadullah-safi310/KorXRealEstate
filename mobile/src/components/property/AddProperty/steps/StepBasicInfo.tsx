@@ -33,6 +33,8 @@ const SUGGESTED_TITLES = [
 const StepBasicInfo = observer(({ isStandalone, isEditing, isCreatingParent }: any) => {
   const { values, setFieldValue, errors, touched } = useFormikContext<any>();
   const theme = useThemeColor();
+  const selectedAgentId = values.agent_id ? String(values.agent_id) : '';
+  const creatorUserId = values.created_by_user_id ? String(values.created_by_user_id) : '';
   const currentPersonId = authStore.user?.person_id || authStore.user?.user_id || authStore.user?.id;
   const isParentContainerFlow = !!isCreatingParent || !!values.is_parent || values.record_kind === 'container';
   const shouldAutoAssignAgent =
@@ -41,11 +43,14 @@ const StepBasicInfo = observer(({ isStandalone, isEditing, isCreatingParent }: a
     (!!isStandalone || isParentContainerFlow);
   // Hide agent picker when agent is auto-assigned in standalone create,
   // parent-container flow (auto agent), and in edit mode (preselected/default value should not be changed here).
-  const shouldHideAssignAgentSection = shouldAutoAssignAgent || !!isEditing || isParentContainerFlow;
+  const shouldHideAssignAgentSection =
+    !isEditing ||
+    shouldAutoAssignAgent ||
+    (!authStore.isAdmin && !!isEditing) ||
+    (isParentContainerFlow && !authStore.isAdmin);
 
   useEffect(() => {
     if (!shouldHideAssignAgentSection && personStore.agents.length === 0) personStore.fetchAgents();
-    if (authStore.isAdmin && personStore.persons.length === 0) personStore.fetchPersons();
 
     // Standalone + parent-container flows: listing agent is always the logged-in agent.
     if (shouldAutoAssignAgent) {
@@ -66,7 +71,12 @@ const StepBasicInfo = observer(({ isStandalone, isEditing, isCreatingParent }: a
         setFieldValue('agent_id', ''); // Default to None for non-agents
       }
     }
-  }, [setFieldValue, values.agent_id, shouldAutoAssignAgent, shouldHideAssignAgentSection, currentPersonId]);
+
+    // Admin edit flow fallback: if agent is empty, preselect creator as default.
+    if (authStore.isAdmin && isEditing && !selectedAgentId && creatorUserId) {
+      setFieldValue('agent_id', creatorUserId);
+    }
+  }, [setFieldValue, values.agent_id, shouldAutoAssignAgent, shouldHideAssignAgentSection, currentPersonId, authStore.isAdmin, isEditing, selectedAgentId, creatorUserId]);
 
   const renderError = (field: string) => {
     if (touched[field] && errors[field]) {
@@ -161,67 +171,6 @@ const StepBasicInfo = observer(({ isStandalone, isEditing, isCreatingParent }: a
         ) : null}
       />
 
-      {/* Owner Assignment (Admin Only) */}
-      {authStore.isAdmin && (
-        <View style={styles.assignmentSection}>
-          <View style={styles.sectionHeader}>
-            <View>
-              <AppText variant="h2" weight="bold" style={{ color: theme.text }}>Assign Owner</AppText>
-              <AppText variant="small" style={{ color: theme.subtext }}>Select the property owner</AppText>
-            </View>
-            <View style={[styles.adminBadge, { backgroundColor: theme.primary + '15' }]}>
-              <AppText variant="tiny" weight="bold" style={{ color: theme.primary }}>ADMIN</AppText>
-            </View>
-          </View>
-          
-          {personStore.loading && personStore.persons.length === 0 ? (
-            <ActivityIndicator size="small" color={theme.primary} style={{ marginVertical: 20 }} />
-          ) : (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.agentScroll}>
-              <TouchableOpacity
-                key="owner-none"
-                activeOpacity={0.7}
-                style={[
-                  styles.agentCard,
-                  { backgroundColor: 'transparent', borderColor: theme.border },
-                  !values.owner_person_id && { borderColor: theme.primary, backgroundColor: theme.primary + '08' },
-                ]}
-                onPress={() => setFieldValue('owner_person_id', '')}
-              >
-                <View style={[styles.noneAvatar, { backgroundColor: theme.border + '50' }]}>
-                  <Ionicons name="person-outline" size={24} color={theme.subtext} />
-                </View>
-                <AppText variant="tiny" weight="bold" style={{ color: !values.owner_person_id ? theme.text : theme.subtext }}>Current User</AppText>
-              </TouchableOpacity>
-
-              {personStore.persons.map((person, index) => {
-                const personId = String(person.person_id || person.user_id || person.id || '');
-                const isActive = values.owner_person_id === personId;
-                return (
-                  <TouchableOpacity
-                    key={`owner-${personId || index}`}
-                    activeOpacity={0.7}
-                    style={[
-                      styles.agentCard,
-                      { backgroundColor: 'transparent', borderColor: theme.border },
-                      isActive && { borderColor: theme.primary, backgroundColor: theme.primary + '08' },
-                    ]}
-                    onPress={() => setFieldValue('owner_person_id', personId)}
-                  >
-                    <Avatar user={person} size="md" />
-                    <AppText variant="tiny" weight="bold" style={{ color: isActive ? theme.text : theme.subtext }} numberOfLines={1}>
-                      {person.full_name?.split(' ')[0] || 'Unknown'}
-                    </AppText>
-                    <AppText variant="tiny" weight="medium" style={{ color: theme.subtext }}>Owner</AppText>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          )}
-          {renderError('owner_person_id')}
-        </View>
-      )}
-
       {!shouldHideAssignAgentSection && (
         <View style={styles.modernAssignmentSection}>
           <View style={styles.sectionHeader}>
@@ -265,9 +214,9 @@ const StepBasicInfo = observer(({ isStandalone, isEditing, isCreatingParent }: a
 
             {/* Agents List */}
             {personStore.agents.map((agent, index) => {
-              const agentId = String(agent.person_id || agent.user_id || agent.id || '');
-              const isActive = values.agent_id === agentId;
-              const currentUserId = authStore.user?.person_id || authStore.user?.user_id || authStore.user?.id;
+              const agentId = String(agent.user_id || agent.person_id || agent.id || '');
+              const isActive = selectedAgentId === agentId;
+              const currentUserId = authStore.user?.user_id || authStore.user?.person_id || authStore.user?.id;
               const isMe = String(currentUserId) === agentId;
               
               return (
@@ -379,6 +328,12 @@ const styles = StyleSheet.create({
   },
   modernAssignmentSection: {
     marginTop: 24,
+    marginBottom: 10,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 10,
   },
   modernAgentScroll: {

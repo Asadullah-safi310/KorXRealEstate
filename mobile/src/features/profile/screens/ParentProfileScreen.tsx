@@ -175,7 +175,7 @@ const ParentProfileScreen = observer(() => {
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'features' | 'available' | 'allProperties'>('features');
+  const [activeTab, setActiveTab] = useState<'features' | 'available' | 'allProperties'>('available');
   const [selectedType, setSelectedType] = useState<string>('ALL');
   const [selectedBeds, setSelectedBeds] = useState<string>('ALL');
   const [agentProfile, setAgentProfile] = useState<any>(null);
@@ -215,7 +215,7 @@ const ParentProfileScreen = observer(() => {
   const currentUser = authStore.user as any;
   const currentUserId = currentUser?.user_id;
   const currentPersonId = currentUser?.person_id;
-  const isAgentUser = authStore.isAuthenticated && authStore.user?.role === 'agent';
+  const isAgentUser = authStore.isAuthenticated && authStore.isAgent;
   const isParentCreator = !!parent?.created_by_user_id && String(parent.created_by_user_id) === String(currentUserId);
   const isParentListingAgent = !!parent?.agent_id && (
     String(parent.agent_id) === String(currentPersonId) || String(parent.agent_id) === String(currentUserId)
@@ -293,16 +293,7 @@ const ParentProfileScreen = observer(() => {
     setRefreshing(false);
   };
 
-  const getAddUnitText = () => {
-    const cat = category?.toLowerCase() || '';
-    switch (cat) {
-      case 'market': return t('property.addShopOffice');
-      case 'sharak': return t('property.addApartmentShopOfficeLandPlotHouse');
-      case 'tower': 
-      case 'apartment': return t('property.addApartmentShopOffice');
-      default: return t('property.addUnit');
-    }
-  };
+  const getAddUnitText = () => 'Add Home';
 
   const getFilterTypes = () => {
     const cat = category?.toLowerCase() || '';
@@ -467,9 +458,9 @@ const ParentProfileScreen = observer(() => {
   };
 
   const buildParentAddress = () => {
-    const street = parent.address || parent.location;
+    const street = parent.address;
     const area = parent.AreaData?.name || parent.area?.name || parent.area_name;
-    const city = parent.DistrictData?.name || parent.city;
+    const city = parent.DistrictData?.name || parent.district_name;
     const province = parent.ProvinceData?.name || parent.province_name;
 
     const parts = street ? [street, area, city, province] : [area, city, province];
@@ -691,18 +682,6 @@ const ParentProfileScreen = observer(() => {
 
           <View style={[styles.tabBar, { borderBottomColor: theme.border }]}>
             <TouchableOpacity 
-              style={[styles.tabItem, activeTab === 'features' && { borderBottomColor: theme.primary, borderBottomWidth: 2 }]}
-              onPress={() => setActiveTab('features')}
-            >
-              <AppText 
-                variant="body" 
-                weight={activeTab === 'features' ? "bold" : "regular"}
-                color={activeTab === 'features' ? theme.primary : theme.subtext}
-              >
-                {t('property.featuresTab')}
-              </AppText>
-            </TouchableOpacity>
-            <TouchableOpacity 
               style={[styles.tabItem, activeTab === 'available' && { borderBottomColor: theme.primary, borderBottomWidth: 2 }]}
               onPress={() => setActiveTab('available')}
             >
@@ -712,6 +691,18 @@ const ParentProfileScreen = observer(() => {
                 color={activeTab === 'available' ? theme.primary : theme.subtext}
               >
                 {t('property.availableHomes')} ({availableUnits.length})
+              </AppText>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.tabItem, activeTab === 'features' && { borderBottomColor: theme.primary, borderBottomWidth: 2 }]}
+              onPress={() => setActiveTab('features')}
+            >
+              <AppText 
+                variant="body" 
+                weight={activeTab === 'features' ? "bold" : "regular"}
+                color={activeTab === 'features' ? theme.primary : theme.subtext}
+              >
+                {t('property.featuresTab')}
               </AppText>
             </TouchableOpacity>
             {canViewAllProperties && (

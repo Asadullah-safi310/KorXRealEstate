@@ -1,4 +1,4 @@
-const { Property, Province, District, Area, User } = require('../models');
+const { Property, Province, District, Area, User, AgentContainerLimit } = require('../models');
 const { validationResult } = require('express-validator');
 const { Op } = require('sequelize');
 const { sequelize } = require('../config/db');
@@ -8,9 +8,26 @@ const { PERMISSIONS } = require('../constants/permissions');
 const hasPermission = (user, permission) => {
   if (user.role === 'admin') return true;
   if (user.role === 'agent') {
-    return true; // Simplified for now
+    const directPermissions = user.userPermissions || [];
+    const relationPermissions = Array.isArray(user.Permissions)
+      ? user.Permissions.map((p) => p.permission_key)
+      : [];
+    const merged = new Set([...directPermissions, ...relationPermissions]);
+    return merged.has(permission);
   }
   return false;
+};
+
+const CONTAINER_PERMISSION_MAP = {
+  tower: PERMISSIONS.MY_TOWERS,
+  market: PERMISSIONS.MY_MARKETS,
+  sharak: PERMISSIONS.MY_SHARAKS,
+};
+
+const CONTAINER_LABEL_MAP = {
+  tower: 'Tower',
+  market: 'Market',
+  sharak: 'Sharak',
 };
 
 // Helper to sanitize integer fields (convert empty strings to null)
@@ -69,6 +86,10 @@ const generatePropertyCode = async (ownerName, agentName) => {
 
 const createParent = async (req, res) => {
   try {
+    if (req.user?.role !== 'agent' && req.user?.role !== 'admin') {
+      return res.status(403).json({ error: 'Only agents and admins can create parent containers.' });
+    }
+
     const {
       title,
       property_category,
@@ -94,7 +115,7 @@ const createParent = async (req, res) => {
     const sanitizedDistrictId = sanitizeInt(district_id);
     const sanitizedAreaId = sanitizeInt(area_id);
     const sanitizedOwnerId = sanitizeInt(owner_person_id);
-    const sanitizedAgentId = sanitizeInt(agent_id);
+    const creatorUserId = req.user?.user_id;
     const sanitizedTotalFloors = sanitizeInt(total_floors);
     const sanitizedPlannedUnits = sanitizeInt(planned_units);
 
@@ -123,9 +144,38 @@ const createParent = async (req, res) => {
     }
 
     // Permission check
-    const categoryKey = normalizedCategory.toUpperCase();
-    if (PERMISSIONS[categoryKey] && !hasPermission(req.user, PERMISSIONS[categoryKey].PARENT_CREATE)) {
+    const requiredPermission = CONTAINER_PERMISSION_MAP[normalizedCategory];
+    if (requiredPermission && !hasPermission(req.user, requiredPermission)) {
       return res.status(403).json({ error: `Not authorized to create ${normalizedCategory} containers` });
+    }
+
+    // Optional per-agent container creation limits.
+    // No row (or NULL max_count) means unlimited.
+    if (req.user.role !== 'admin') {
+      const limitConfig = await AgentContainerLimit.findOne({
+        where: {
+          user_id: req.user.user_id,
+          container_type: normalizedCategory,
+        },
+      });
+
+      if (limitConfig && limitConfig.max_count !== null) {
+        const currentCount = await Property.count({
+          where: {
+            created_by_user_id: req.user.user_id,
+            record_kind: 'container',
+            property_category: normalizedCategory,
+            parent_id: null,
+          },
+        });
+
+        if (currentCount >= limitConfig.max_count) {
+          const label = CONTAINER_LABEL_MAP[normalizedCategory] || 'Container';
+          return res.status(403).json({
+            error: `${label} creation limit reached (${currentCount}/${limitConfig.max_count}). Contact admin.`,
+          });
+        }
+      }
     }
 
     const detailsObj = details || {};
@@ -140,14 +190,13 @@ const createParent = async (req, res) => {
     const agentName = req.user ? req.user.full_name : null;
     const propertyCode = await generatePropertyCode(owner_name, agentName);
 
-    // Parent containers: record_kind='container', is_parent=1, category=tower|market|sharak, parent_property_id=NULL
+    // Parent containers: record_kind='container', is_parent=1, category=tower|market|sharak, parent_id=NULL
     const parent = await Property.create({
       title,
       property_category: normalizedCategory, // Normalized category (tower, market, or sharak)
       record_kind: 'container', // Parent containers are containers, not listings
       is_parent: true, // Parent containers have is_parent=1
       parent_id: null, // Parent containers have no parent
-      parent_property_id: null, // Parent containers have no parent
       property_type: normalizedCategory, // Set property_type to match category for containers
       province_id: sanitizedProvinceId,
       district_id: sanitizedDistrictId,
@@ -162,8 +211,9 @@ const createParent = async (req, res) => {
       owner_person_id: sanitizedOwnerId,
       owner_name: owner_name || null,
       property_code: propertyCode,
-      agent_id: sanitizedAgentId,
-      created_by_user_id: req.user.user_id,
+      // Creation rule: creator is always the assigned agent.
+      agent_id: creatorUserId,
+      created_by_user_id: creatorUserId,
       status: 'active',
       purpose: null, // Containers must NOT be listed for sale/rent
       sale_price: null,
@@ -195,20 +245,28 @@ const getAgentParents = async (req, res) => {
       return res.status(400).json({ error: 'Category is required' });
     }
 
+    let normalizedCategory = String(category).toLowerCase().trim();
+    if (normalizedCategory === 'apartment') {
+      normalizedCategory = 'tower';
+    }
+
     // Permission check
-    const permKey = category.toUpperCase();
-    if (PERMISSIONS[permKey] && !hasPermission(req.user, PERMISSIONS[permKey].PARENT_READ)) {
-      return res.status(403).json({ error: `Not authorized to read ${category} containers` });
+    const requiredPermission = CONTAINER_PERMISSION_MAP[normalizedCategory];
+    if (requiredPermission && !hasPermission(req.user, requiredPermission)) {
+      return res.status(403).json({ error: `Not authorized to read ${normalizedCategory} containers` });
     }
 
     const where = {
-      property_category: category,
+      property_category: normalizedCategory,
       record_kind: 'container',
       parent_id: null
     };
 
     if (req.user.role !== 'admin') {
-      where.created_by_user_id = req.user.user_id;
+      where[Op.or] = [
+        { created_by_user_id: req.user.user_id },
+        { agent_id: req.user.user_id }
+      ];
     }
 
     const parents = await Property.findAll({
@@ -312,6 +370,10 @@ const getParentChildren = async (req, res) => {
 
 const createChild = async (req, res) => {
   try {
+    if (req.user?.role !== 'agent' && req.user?.role !== 'admin') {
+      return res.status(403).json({ error: 'Only agents and admins can create child properties.' });
+    }
+
     const { id } = req.params;
     console.log('========== CREATE CHILD UNIT ==========');
     console.log('Parent ID:', id);
@@ -404,11 +466,10 @@ const createChild = async (req, res) => {
     const agentName = req.user ? req.user.full_name : null;
     const propertyCode = await generatePropertyCode(owner_name, agentName);
 
-    // Child units: record_kind='listing', is_parent=0, category inherited from parent, parent_property_id=parent.id
+    // Child units: record_kind='listing', is_parent=0, category inherited from parent, parent_id=parent.id
     // According to requirements: Child units inherit category from parent container
     const childData = {
       parent_id: id,
-      parent_property_id: id, // Child units must reference parent
       property_category: parentCategory, // Inherit from parent: tower, market, or sharak (normalized)
       record_kind: 'listing', // Child units are always listings, not containers
       is_parent: false, // Child units are never parents (is_parent=0)
@@ -429,7 +490,9 @@ const createChild = async (req, res) => {
       details: details || {},
       owner_name: owner_name || null,
       property_code: propertyCode,
+      // Creation rule: creator is always the assigned agent.
       created_by_user_id: req.user.user_id,
+      agent_id: req.user.user_id,
       status: 'active',
       // Inherit location from parent container
       province_id: parent.province_id,
@@ -438,7 +501,6 @@ const createChild = async (req, res) => {
       address: parent.address,
       latitude: parent.latitude,
       longitude: parent.longitude,
-      city: parent.city,
       // Use unit-specific facilities if provided, otherwise inherit from parent
       facilities: unitFacilities !== undefined ? unitFacilities : parent.facilities
     };
